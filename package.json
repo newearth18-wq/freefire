@@ -1,13 +1,13 @@
 {
   "name": "last-island",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node scripts/dev-server.mjs",
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
-    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs"
+    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs && node scripts/verify-visuals.mjs"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.11",
