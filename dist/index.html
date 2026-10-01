@@ -18,7 +18,7 @@
 <p>เก็บอาวุธ ใช้ที่กำบัง และอยู่ในวงปลอดภัย<br>เอาชนะบอตอีก 11 คนเพื่อเป็นผู้รอดคนสุดท้าย</p>
 <div class="match-details"><span>▧ <b>เกาะอรุณ</b></span><span>◷ <b>ประมาณ 4 นาที</b></span></div>
 <button id="start" class="primary" disabled>กำลังเตรียมเกม…</button>
-<details class="instructions"><summary>วิธีเล่นและการควบคุม</summary><p><b>คอม:</b> WASD / ลูกศรเดิน · ลากเมาส์เพื่อมอง · คลิกขวาเพื่อจับเมาส์ · คลิกซ้ายยิง · Shift วิ่ง · R เติมกระสุน · Q รักษา · E เปลี่ยนปืน · Esc พัก</p><p><b>มือถือ / แท็บเล็ต:</b> จอยซ้ายเดิน · ลากจอขวาเพื่อมอง · ปุ่มยิงขวา · แนะนำแนวนอน</p><p>เก็บของอัตโนมัติเมื่อเดินเข้าใกล้ อาวุธสีทอง กระสุนสีฟ้า และยาเขียว</p></details>
+<details class="instructions"><summary>วิธีเล่นและการควบคุม</summary><p><b>คอม:</b> WASD / ลูกศรเดิน · ลากเมาส์เพื่อมอง · คลิกขวาเล็ง · คลิกซ้ายยิง · Shift วิ่ง · Space กระโดด · C ย่อ · G กำแพง · R เติมกระสุน · Q รักษา · E เปลี่ยนปืน · Esc พัก</p><p><b>มือถือ / แท็บเล็ต:</b> จอยซ้ายเดิน · ลากจอขวาเพื่อมอง · ลากปุ่มยิงเพื่อยิงและหันพร้อมกัน · กระโดด ย่อ เล็ง และกำแพงที่ปุ่มขวา · แนะนำแนวนอน</p><p>เก็บของอัตโนมัติเมื่อเดินเข้าใกล้ อาวุธสีทอง กระสุนสีฟ้า และยาเขียว</p></details>
 <div class="lobby-footer">3D BATTLE ROYALE <span>มือถือ · แท็บเล็ต · คอมพิวเตอร์</span></div>
 </section>
 <div id="hud" hidden>
@@ -32,14 +32,16 @@
 <canvas id="minimap" width="180" height="180" aria-label="แผนที่และวงปลอดภัย"></canvas>
 <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
 <div id="hitmarker">×</div><div id="damage"></div>
+<div class="equipment"><div class="weapon-line"><div><small id="weapon-kind">ASSAULT RIFLE</small><strong id="weapon-name">AR-7</strong></div><div class="ammo"><b id="ammo">30</b><span>/ <span id="reserve">150</span></span></div></div><div class="weapon-slots"><button id="slot-0" aria-label="เลือกปืน AR-7"><small>1</small> AR-7</button><button id="slot-1" aria-label="เลือกปืน VECTOR"><small>2</small> VECTOR</button><button id="slot-2" aria-label="เลือกปืน M-8"><small>3</small> M-8</button></div></div>
+<div id="headshot" hidden>HEADSHOT</div>
 <div class="feed" id="feed" aria-live="polite"></div>
 <div id="toast" role="status"></div>
-<div class="player-status"><div class="health-label"><span>HP <b id="hp">100</b></span><span id="med-label">ยา × 2</span></div><div class="health-track"><div id="health-bar"></div></div><div class="weapon-line"><div><small id="weapon-kind">ASSAULT RIFLE</small><strong id="weapon-name">AR-7</strong></div><div class="ammo"><b id="ammo">30</b><span>/ <span id="reserve">150</span></span></div></div><div id="reload-progress" hidden><span></span><b>กำลังเติมกระสุน</b></div></div>
-<div id="desktop-hint">WASD เดิน <span>ลากเมาส์ มอง</span> R เติมกระสุน <span>Q รักษา</span> E เปลี่ยนปืน</div>
+<div class="player-status"><div class="health-label"><span>HP <b id="hp">100</b></span><span id="med-label">ยา × 2</span></div><div class="health-track"><div id="health-bar"></div></div><div id="reload-progress" hidden><span></span><b>กำลังเติมกระสุน</b></div></div>
+<div id="desktop-hint">WASD เดิน · Shift วิ่ง <span>Space กระโดด · C ย่อ</span> G กำแพง · Q รักษา <span>คลิกขวา เล็ง · R เติมกระสุน</span> 1 / 2 / 3 เปลี่ยนปืน</div>
 <div id="touch-controls">
 <div id="joystick" aria-label="จอยเดิน"><div id="stick"></div></div>
 <div id="look-area" aria-label="ลากเพื่อมอง"></div>
-<div class="touch-actions"><button id="swap-touch" aria-label="เปลี่ยนอาวุธ">เปลี่ยนปืน</button><button id="reload-touch" aria-label="เติมกระสุน">เติมกระสุน</button><button id="heal-touch" aria-label="ใช้ยา">✚ <small>ยา</small></button><button id="sprint-touch" aria-label="วิ่ง">วิ่ง</button><button id="fire-touch" aria-label="ยิง"><span>◎</span><small>ยิง</small></button></div>
+<div class="touch-actions"><button id="swap-touch" aria-label="เปลี่ยนอาวุธ">เปลี่ยนปืน</button><button id="reload-touch" aria-label="เติมกระสุน">เติมกระสุน</button><button id="heal-touch" aria-label="ใช้ยา">✚ <small>ยา</small></button><button id="sprint-touch" aria-label="วิ่ง">วิ่ง</button><button id="jump-touch" aria-label="กระโดด"><b>↑</b><small>กระโดด</small></button><button id="crouch-touch" aria-label="ย่อตัว">ย่อตัว</button><button id="aim-touch" aria-label="เล็งปืน">⊕<small>เล็ง</small></button><button id="wall-touch" aria-label="วางกำแพงป้องกัน">▥<small>กำแพง <span id="wall-count">3</span></small></button><button id="fire-touch" aria-label="ยิง"><span>◎</span><small>ยิง</small></button></div>
 </div>
 </div>
 <section id="pause-panel" class="overlay" hidden><div class="modal"><small>LAST ISLAND</small><h2>พักเกม</h2><p>สนามรบกำลังรอคุณ</p><button id="resume" class="primary">กลับไปเล่น</button><button id="quit" class="secondary">กลับหน้าหลัก</button></div></section>

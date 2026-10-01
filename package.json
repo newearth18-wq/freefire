@@ -1,1 +1,1 @@
-{"name":"last-island","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node scripts/server.mjs","check":"node --check dist/game.mjs && node --check dist/world.mjs"}}
+{"name":"last-island","version":"2.0.0","private":true,"type":"module","scripts":{"start":"node scripts/server.mjs","check":"node --check dist/game.mjs && node --check dist/world.mjs","test":"node scripts/verify.mjs && node scripts/verify-world.mjs"}}
