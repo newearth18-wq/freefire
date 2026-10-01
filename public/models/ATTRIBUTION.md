@@ -69,3 +69,13 @@ All three import bare `three`; preserve the game's import map to the matching lo
 ## Validation
 
 GLB header magic, version, total byte length and JSON/BIN chunk sizes validated. Packed JSON retains all 24 animation names, mesh/skin counts and one embedded 1,429,928 byte binary buffer. No external URIs. This asset has not been visually rendered in this asset-only task; the main integration should confirm camera scale and weapon attachment.
+
+
+## Wardrobe models (v5)
+
+Author: Quaternius. License: CC0 1.0 Universal.
+
+- `ghost.glb`: Hoodie Character (internally Casual meshes), Ultimate Modular Men. 6,206 triangles, 62 bones, 24 animations. Source: https://poly.pizza/m/gKLBoRsyKe . Download: https://static.poly.pizza/bcd66ec5-5e81-4901-a222-47abc875fe2a.glb . Official pack: https://quaternius.com/packs/ultimatemodularcharacters.html .
+- `nova.glb`: Punk, Ultimate Modular Women. 5,956 triangles, 62 bones, 24 animations. Source: https://poly.pizza/m/djXoqejw6w . Download: https://static.poly.pizza/1d368679-1d9a-4d5c-9095-877144b02d00.glb . Official pack: https://quaternius.com/packs/ultimatemodularwomen.html .
+
+Models are locally hosted. Mesh exports are converted to metres and remapped to the Adventurer skeleton by bone name during loading, so independently selected head, torso, trousers and shoes share the same optimized animation rig. Original animation names are normalized in memory. Clothing stays one skinned draw call per actor. LAST ISLAND character names are original labels.

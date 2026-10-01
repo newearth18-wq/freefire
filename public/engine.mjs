@@ -1,6 +1,7 @@
 import {findRoute} from './navigation.mjs';
 import {STATIC_SOLIDS,groundHeight,moveSlide,canStand,rayBox,lineClear,seeded,cameraPosition} from './arena.mjs';
 import {WEAPONS,zoneAt,clamp} from './rules.mjs';
+import {normalizeAppearance,botAppearance} from './appearance.mjs';
 export const TEAM_COLORS=['#46dcca','#ff846d','#bc94ff','#f1c75c'];
 export function makeMatch({mode='solo',humans=[{id:'you',name:'ผู้รอดชีวิต'}],seed=18}={}){
  const m={id:'match-'+seed,mode,state:'playing',time:0,drop:6,seed:seed>>>0,entities:[],loot:[],walls:[],events:[],eventSeq:0,zone:108,winner:null};
@@ -9,7 +10,7 @@ export function makeMatch({mode='solo',humans=[{id:'you',name:'ผู้รอ�
   const human=team===0?humans[i]:null,a=mode==='solo'?team/groups*Math.PI*2:team/4*Math.PI*2+Math.PI/4,r=mode==='solo'?50+rand()*35:84;
   let x=Math.sin(a)*r+(i%2)*3,z=Math.cos(a)*r+Math.floor(i/2)*3;
   if(team===0){x=i%2*2.4-1.2;z=31+Math.floor(i/2)*2.4}for(let n=0;n<100&&!canStand(x,z,STATIC_SOLIDS,.8,groundHeight(x,z));n++){x+=(rand()-.5)*5;z+=(rand()-.5)*5}
-  m.entities.push({id:human?.id??'bot-'+team+'-'+i,name:human?.name??(team===0&&mode==='squad'?'เพื่อน '+i:'ผู้เล่น '+String(team*per+i+1).padStart(2,'0')),human:!!human,team,slot:i,x,z,y:groundHeight(x,z)+25,yaw:0,pitch:-.045,hp:100,armor:50,status:'alive',bleed:30,revive:0,kills:0,medkits:2,wallCharges:3,weapon:0,weapons:WEAPONS.map((s,n)=>({ammo:s.mag,reserve:120,owned:n<2})),shot:0,reload:0,heal:0,jump:0,vy:0,aim:false,crouch:false,speed:0,input:{},lastInput:0,lastAction:0,botTimer:2+rand()*2,strafe:rand()<.5?-1:1,stuck:0,downedBy:null});
+  m.entities.push({id:human?.id??'bot-'+team+'-'+i,name:human?.name??(team===0&&mode==='squad'?'เพื่อน '+i:'ผู้เล่น '+String(team*per+i+1).padStart(2,'0')),human:!!human,appearance:human?normalizeAppearance(human.appearance):botAppearance(team,i),team,slot:i,x,z,y:groundHeight(x,z)+25,yaw:0,pitch:-.045,hp:100,armor:50,status:'alive',bleed:30,revive:0,kills:0,medkits:2,wallCharges:3,weapon:0,weapons:WEAPONS.map((s,n)=>({ammo:s.mag,reserve:120,owned:n<2})),shot:0,reload:0,heal:0,jump:0,vy:0,aim:false,crouch:false,speed:0,input:{},lastInput:0,lastAction:0,botTimer:2+rand()*2,strafe:rand()<.5?-1:1,stuck:0,downedBy:null});
  }
  for(let i=0;i<55;i++){const a=rand()*Math.PI*2,r=8+rand()*88;let x=Math.sin(a)*r,z=Math.cos(a)*r;if(!canStand(x,z,STATIC_SOLIDS,1.2,groundHeight(x,z)))continue;m.loot.push({id:i,x,z,y:groundHeight(x,z),type:i%8===0?'weapon':i%6===0?'wall':i%4===0?'armor':i%3===0?'med':'ammo',weapon:2})}
  m.loot.push({id:100,x:0,z:22,y:0,type:'weapon',weapon:2},{id:101,x:4,z:31,y:0,type:'med'},{id:102,x:-4,z:31,y:0,type:'armor'});return m;
@@ -67,5 +68,5 @@ export function tick(m,dt){if(m.state!=='playing')return;dt=clamp(dt,0,.05);if(m
  const teams=new Set(m.entities.filter(living).map(e=>e.team));if(teams.size<=1){m.state='ended';m.winner=teams.size?[...teams][0]:null;event(m,'end',{winner:m.winner})}m.events=m.events.filter(e=>m.time-e.time<4);
 }
 export function advance(m,seconds){for(let remain=Math.min(1,seconds);remain>0;remain-=.04)tick(m,Math.min(.04,remain))}
-export function view(m,id){const e=m.entities.find(e=>e.id===id);return{state:m.state,mode:m.mode,phase:m.drop>0?'landing':'combat',elapsed:Math.floor(m.time),alive:m.entities.filter(living).length,teams:new Set(m.entities.filter(living).map(e=>e.team)).size,health:Math.ceil(e?.hp??0),status:e?.status,kills:e?.kills??0,weapon:WEAPONS[e?.weapon??0].name,ammo:e?.weapons[e.weapon]?.ammo??0,aiming:e?.aim??false,crouched:e?.crouch??false,jumping:(e?.jump??0)>0,wallCharges:e?.wallCharges??0,barriers:m.walls.length,zoneRadius:Math.round(m.zone),team:m.entities.filter(a=>a.team===e?.team).map(a=>({id:a.id,name:a.name,human:a.human,status:a.status,health:Math.ceil(a.hp)})),position:e?{x:+e.x.toFixed(1),z:+e.z.toFixed(1)}:null}}
+export function view(m,id){const e=m.entities.find(e=>e.id===id);return{state:m.state,mode:m.mode,phase:m.drop>0?'landing':'combat',elapsed:Math.floor(m.time),alive:m.entities.filter(living).length,teams:new Set(m.entities.filter(living).map(e=>e.team)).size,appearance:normalizeAppearance(e?.appearance),health:Math.ceil(e?.hp??0),status:e?.status,kills:e?.kills??0,weapon:WEAPONS[e?.weapon??0].name,ammo:e?.weapons[e.weapon]?.ammo??0,aiming:e?.aim??false,crouched:e?.crouch??false,jumping:(e?.jump??0)>0,wallCharges:e?.wallCharges??0,barriers:m.walls.length,zoneRadius:Math.round(m.zone),team:m.entities.filter(a=>a.team===e?.team).map(a=>({id:a.id,name:a.name,appearance:normalizeAppearance(a.appearance),human:a.human,status:a.status,health:Math.ceil(a.hp)})),position:e?{x:+e.x.toFixed(1),z:+e.z.toFixed(1)}:null}}
 

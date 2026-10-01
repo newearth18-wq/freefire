@@ -1,17 +1,19 @@
 {
   "name": "last-island",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node scripts/dev-server.mjs",
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
-    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs && node scripts/verify-visuals.mjs"
+    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs && node scripts/verify-visuals.mjs && node scripts/verify-loadout.mjs"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.3",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "jsqr": "1.4.0",
+    "qrcode": "1.5.4"
   }
 }

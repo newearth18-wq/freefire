@@ -1,8 +1,9 @@
 import {makeMatch,setInput,advance,living} from '../public/engine.mjs';
+import {normalizeAppearance} from '../public/appearance.mjs';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status})};
 const nickname=value=>typeof value==='string'&&value.trim()?value.trim().slice(0,18):'ผู้รอดชีวิต';
-function roomView(room,member){return{code:room.code,id:member.id,isHost:room.members[0]?.id===member.id,state:room.match?.state??'waiting',players:room.members.map(a=>({id:a.id,name:a.name,host:a.id===room.members[0]?.id,connected:Date.now()-a.seen<12000})),match:room.match??null}}
+function roomView(room,member){return{code:room.code,id:member.id,isHost:room.members[0]?.id===member.id,state:room.match?.state??'waiting',players:room.members.map(a=>({id:a.id,name:a.name,appearance:normalizeAppearance(a.appearance),host:a.id===room.members[0]?.id,connected:Date.now()-a.seen<12000})),match:room.match??null}}
 function database(env){if(!env.DB)fail('ห้องออนไลน์ยังไม่พร้อม กรุณาลองอีกครั้ง',503);return env.DB}
 function authenticate(room,token){const member=room.members.find(a=>a.token===token);if(!member)fail('เซสชันห้องหมดอายุ กรุณาเข้าห้องใหม่',401);return member}
 export async function api(request,env){
@@ -15,7 +16,7 @@ export async function api(request,env){
  const db=database(env),operation=url.pathname.split('/').at(-1),now=Date.now();
  if(operation==='create'){
   await db.prepare('DELETE FROM rooms WHERE code IN (SELECT code FROM rooms WHERE expires<? LIMIT 20)').bind(now).run();
-  const member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),seen:now};
+  const member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),appearance:normalizeAppearance(input.appearance),seen:now};
   for(let n=0;n<4;n++){const bytes=crypto.getRandomValues(new Uint8Array(6)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=[...bytes].map(b=>alphabet[b%32]).join('');const room={code,members:[member],match:null,lastTick:now};try{await db.prepare('INSERT INTO rooms (code,data,revision,expires) VALUES (?,?,0,?)').bind(code,JSON.stringify(room),now+3600000).run();return json({...roomView(room,member),token:member.token},201)}catch(e){if(!String(e).includes('UNIQUE'))throw e}}
   fail('สร้างห้องไม่สำเร็จ กรุณาลองอีกครั้ง',503);
  }
@@ -25,12 +26,15 @@ export async function api(request,env){
   const room=JSON.parse(row.data);if(!room.match)room.members=room.members.filter(a=>a.token===input.token||now-a.seen<30000);let member;
   if(operation==='join'){
    if(input.token)member=room.members.find(a=>a.token===input.token);
-   if(!member){if(room.match)fail('แมตช์เริ่มแล้ว ให้เจ้าของห้องเปิดแมตช์ใหม่',409);if(room.members.length>=4)fail('ห้องเต็มแล้ว (สูงสุด 4 คน)',409);member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),seen:now};room.members.push(member)}
+   if(!member){if(room.match)fail('แมตช์เริ่มแล้ว ให้เจ้าของห้องเปิดแมตช์ใหม่',409);if(room.members.length>=4)fail('ห้องเต็มแล้ว (สูงสุด 4 คน)',409);member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),appearance:normalizeAppearance(input.appearance),seen:now};room.members.push(member)}
   }else member=authenticate(room,input.token);member.seen=now;
   if(operation==='start'){
    if(room.members[0]?.id!==member.id)fail('เจ้าของห้องเท่านั้นที่เริ่มแมตช์ได้',403);
    if(room.match?.state==='playing')fail('แมตช์กำลังเล่นอยู่',409);
-   room.match=makeMatch({mode:'squad',humans:room.members.map(a=>({id:a.id,name:a.name})),seed:now>>>0});room.lastTick=now;
+   room.match=makeMatch({mode:'squad',humans:room.members.map(a=>({id:a.id,name:a.name,appearance:a.appearance})),seed:now>>>0});room.lastTick=now;
+  }else if(operation==='appearance'){
+   if(room.match?.state==='playing')fail('เปลี่ยนชุดได้เมื่อจบแมตช์แล้ว',409);
+   member.appearance=normalizeAppearance(input.appearance);
   }else if(operation==='leave'){
    room.members=room.members.filter(a=>a.id!==member.id);if(room.match){const actor=room.match.entities.find(a=>a.id===member.id);if(actor){actor.human=false;actor.input={};actor.name+=' (บอต)'}}
   }else if(!['join','poll'].includes(operation))fail('ไม่รองรับคำสั่งนี้',404);
