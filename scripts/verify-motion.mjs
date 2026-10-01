@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {MotionPredictor} from '../public/motion.mjs';
+const actor={x:0,y:0,z:0,yaw:0,status:'alive',jump:0,vy:0,heal:0};
+const original=structuredClone(actor),input={mx:1,mz:0,yaw:0},p=new MotionPredictor();
+p.reset(actor);
+for(let i=0;i<30;i++)p.step(actor,input,1/60,[]);
+assert.ok(Math.abs(p.position.x-2.7)<1e-6,'movement continues between network snapshots');
+assert.deepEqual(actor,original,'prediction never changes authoritative state');
+p.receive({...actor,x:2.4},input,0,[]);
+const before=p.position.x;p.step(actor,{},1/60,[]);
+assert.ok(p.position.x<before&&p.position.x>2.4,'small corrections blend instead of snapping');
+p.receive({...actor,x:10},input,0,[]);assert.equal(p.position.x,10,'large corrections reset safely');
+p.reset(actor);const walls=[{x:1,z:0,w:.1,d:2,y:0,h:3}];
+for(let i=0;i<60;i++)p.step(actor,input,1/60,walls);
+assert.ok(p.position.x<.46,'predicted movement respects collisions');
+p.step({...actor,x:4},input,1/60,[],false);assert.equal(p.position.x,4,'disabled prediction follows server');
+console.log('Motion: continuous movement, reconciliation, collision and authoritative state passed');

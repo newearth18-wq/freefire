@@ -7,6 +7,11 @@ const bytes=await readFile(new URL('../public/models/operative.glb',import.meta.
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 prepareCharacter(gltf);
 const avatars=[makeAvatar(0),makeAvatar(1)],point=new T.Vector3();
+const hidden=avatars[0],bone=hidden.userData.model.getObjectByName('WristR'),update=bone.updateMatrixWorld;
+let visits=0;bone.updateMatrixWorld=function(force){visits++;return update.call(this,force)};
+hidden.visible=false;hidden.updateMatrixWorld(true);assert.equal(visits,0,'hidden rigs skip skeleton traversal');
+hidden.visible=true;hidden.position.x=3;hidden.updateMatrixWorld(true);assert.ok(visits>0,'visible rigs resume world transforms');
+assert.equal(hidden.matrixWorld.elements[12],3);hidden.position.x=0;bone.updateMatrixWorld=update;
 for(const avatar of avatars){let meshes=0;avatar.userData.model.traverse(o=>{if(o.isSkinnedMesh){meshes++;assert.equal(o.geometry.index.count/3,10202,'merging preserves every character triangle');assert.equal(o.skeleton.bones.length,62);assert.ok(o.geometry.attributes.color)}});assert.equal(meshes,1,'the full character uses one draw call');
  for(const speed of[0,5.4])for(let frame=0;frame<90;frame++){animateAvatar(avatar,{status:'alive',speed,crouch:false,pitch:0},1/60);avatar.updateMatrixWorld(true);avatar.userData.model.getObjectByName('WristR').getWorldPosition(point);assert.ok(point.distanceTo(avatar.userData.gun.position)<.4,'baked weapon anchor remains at the right hand');assert.ok(Number.isFinite(point.y)&&point.y>.5&&point.y<2.5,'animated skeleton has a valid standing pose')}
  animateAvatar(avatar,{status:'down',speed:0,crouch:false},.1);assert.equal(avatar.userData.gun.visible,false);

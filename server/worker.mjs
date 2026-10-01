@@ -37,7 +37,7 @@ async function updateRoom(db,code,operation,input,now){let inputWritten=false;fo
  else if(operation==='team'){if(room.mode!=='squad')fail('โหมดเดี่ยวไม่มีทีม');if(room.match)fail('เปลี่ยนทีมได้ก่อนเริ่มแมตช์',409);Object.assign(member,seat(room,input.team,member.id))}
  else if(operation==='leave'){room.members=room.members.filter(a=>a.id!==member.id);if(room.match){const actor=room.match.entities.find(a=>a.id===member.id);if(actor){actor.human=false;actor.input={};actor.name+=' (บอต)'}}}
  else if(!['join','poll'].includes(operation))fail('ไม่รองรับคำสั่งนี้',404);
- if(!room.match&&room.members.length&&(room.members.length===MAX_PLAYERS||room.queue&&now>=room.startsAt))begin(room,now);
+ if(!room.match&&room.queue&&room.members.length&&(room.members.length===MAX_PLAYERS||now>=room.startsAt))begin(room,now);
  const queueMode=room.queue&&!room.match&&room.members.length?room.mode:null;
  const result=await db.prepare('UPDATE rooms SET data=?,revision=revision+1,queue_mode=? WHERE code=? AND revision=?').bind(JSON.stringify(room),queueMode,code,row.revision).run();
  if((result.meta?.changes??0)>0)return json(operation==='leave'?{left:true}:{...roomView(room,member),...(operation==='join'?{token:member.token}:{})});

@@ -1,0 +1,9 @@
+import {moveSlide,groundHeight} from './arena.mjs';
+// Visual prediction only. Damage, inventory and the authoritative position stay on the server.
+export class MotionPredictor{
+ constructor(){this.position=null;this.error={x:0,z:0};this.jump=0;this.vy=0}
+ reset(actor){this.position={x:actor.x,y:actor.y,z:actor.z};this.error={x:0,z:0};this.jump=actor.jump??0;this.vy=actor.vy??0}
+ move(position,actor,input,dt,solids){const length=Math.max(1,Math.hypot(input.mx||0,input.mz||0)),yaw=input.yaw??actor.yaw,speed=(actor.status==='down'?.8:actor.crouch?2.6:input.sprint?8.5:5.4)*(actor.heal>0?.4:input.aim?.7:1),mx=(input.mx||0)/length,mz=(input.mz||0)/length;moveSlide(position,(mx*Math.cos(yaw)+mz*Math.sin(yaw))*speed*dt,(-mx*Math.sin(yaw)+mz*Math.cos(yaw))*speed*dt,solids)}
+ receive(actor,input,lag,solids){if(!this.position){this.reset(actor);return}const expected={x:actor.x,y:actor.y,z:actor.z};if(actor.status==='alive'||actor.status==='down')this.move(expected,actor,input,Math.min(.3,Math.max(0,lag)),solids);const dx=expected.x-this.position.x,dz=expected.z-this.position.z;if(Math.hypot(dx,dz)>3||actor.status==='dead')this.reset(actor);else this.error={x:dx,z:dz};this.jump=Math.max(0,(actor.jump??0)+(actor.vy??0)*lag-9*lag*lag);this.vy=this.jump>0?(actor.vy??0)-18*lag:0}
+ step(actor,input,dt,solids,active=true){if(!this.position)this.reset(actor);if(!active){this.reset(actor);return this.position}if(actor.status!=='dead')this.move(this.position,actor,input,dt,solids);const fraction=1-Math.exp(-dt*7);moveSlide(this.position,this.error.x*fraction,this.error.z*fraction,solids);this.error.x*=1-fraction;this.error.z*=1-fraction;if(this.vy>0||this.jump>0){this.vy-=18*dt;this.jump=Math.max(0,this.jump+this.vy*dt);if(this.jump===0)this.vy=0}this.position.y=groundHeight(this.position.x,this.position.z)+this.jump;return this.position}
+}

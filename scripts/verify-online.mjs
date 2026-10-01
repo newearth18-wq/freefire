@@ -39,7 +39,7 @@ try{
   const joins=await Promise.all(Array.from({length:49},(_,i)=>call('join',{code:owner.code,name:'Player '+i})));
   assert.ok(joins.every(r=>r.status===200),JSON.stringify(joins.filter(r=>r.status!==200)));
   const clients=[owner,...joins.map(r=>r.body)];assert.equal(new Set(clients.map(p=>p.id)).size,50);
-  const snapshot=(await call('poll',auth(owner))).body;assert.equal(snapshot.match.entities.length,50);assert.equal(snapshot.match.entities.filter(e=>e.human).length,50);assert.equal(snapshot.players.length,50);
+  const waiting=(await call('poll',auth(owner))).body;assert.equal(waiting.state,'waiting');assert.equal(waiting.match,null,'a full private room still waits for the owner');assert.equal(waiting.startsAt,null);await mutate(owner.code,r=>r.startsAt=Date.now()-1);assert.equal((await call('poll',auth(owner))).body.match,null,'private rooms never use a matchmaking countdown');const snapshot=(await call('start',auth(owner))).body;assert.equal(snapshot.match.entities.length,50);assert.equal(snapshot.match.entities.filter(e=>e.human).length,50);assert.equal(snapshot.players.length,50);
   for(const team of new Set(snapshot.players.map(p=>p.team)))assert.equal(snapshot.players.filter(p=>p.team===team).length,mode==='solo'?1:5);
   assert.equal((await call('join',{code:owner.code,name:'51st'})).status,409);
   await mutate(owner.code,r=>{r.match.drop=0;r.lastTick=Date.now()-200});
