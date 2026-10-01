@@ -3,10 +3,10 @@ import {makeMatch,damage,setInput,act,tick,advance,view} from '../public/engine.
 import {canStand,groundHeight,BUILDINGS,cameraPosition} from '../public/arena.mjs';
 import {WEAPONS} from '../public/rules.mjs';
 import {findRoute,clearRoute} from '../public/navigation.mjs';
-const humans=Array.from({length:4},(_,i)=>({id:'friend-'+i,name:'Friend '+i}));
-const solo=makeMatch();assert.equal(solo.entities.length,16);assert.equal(new Set(solo.entities.map(e=>e.team)).size,16);assert.equal(solo.entities.filter(e=>e.human).length,1);
-const squad=makeMatch({mode:'squad',humans});assert.equal(squad.entities.length,16);assert.equal(squad.entities.filter(e=>e.team===0&&e.human).length,4);assert.equal(new Set(squad.entities.map(e=>e.team)).size,4);
-const a=squad.entities[0],b=squad.entities[1],enemy=squad.entities[4];squad.drop=0;
+const humans=Array.from({length:5},(_,i)=>({id:'friend-'+i,name:'Friend '+i}));
+const solo=makeMatch();assert.equal(solo.entities.length,50);assert.equal(new Set(solo.entities.map(e=>e.team)).size,50);assert.equal(solo.entities.filter(e=>e.human).length,1);
+const squad=makeMatch({mode:'squad',humans});assert.equal(squad.entities.length,50);assert.equal(squad.entities.filter(e=>e.team===0&&e.human).length,5);assert.equal(new Set(squad.entities.map(e=>e.team)).size,10);
+const a=squad.entities[0],b=squad.entities[1],enemy=squad.entities[5];squad.drop=0;
 damage(squad,a,1000,b);assert.equal(a.hp,100);assert.equal(a.armor,50);
 damage(squad,a,1000,enemy);assert.equal(a.status,'down');assert.equal(a.bleed,30);
 a.x=0;a.z=0;a.y=0;b.x=1;b.z=0;b.y=0;
@@ -23,7 +23,7 @@ const obstruction=[{x:0,z:3,w:4,d:.2,y:0,h:4}],cam=cameraPosition({x:0,z:0,y:0,y
 const landing=makeMatch();landing.drop=.02;Object.assign(landing.entities[0],{x:bld.x-bld.w/2,z:bld.z,y:feet+1});tick(landing,.04);assert.ok(canStand(landing.entities[0].x,landing.entities[0].z,undefined,.45,landing.entities[0].y),'landing repairs overlap with a building');
 const zone=makeMatch();zone.drop=0;zone.time=500;zone.entities[0].x=100;zone.entities[0].z=0;zone.entities[0].human=true;advance(zone,.5);assert.ok(zone.entities[0].hp<100);assert.ok(zone.events.every(e=>e.type!=='damage'||e.amount>0));assert.equal(view(zone,'you').mode,'solo');
 // A teammate must traverse the house through its doors and revive an ally.
-const rescue=makeMatch({mode:'squad'});rescue.drop=0;rescue.loot=[];rescue.entities=[rescue.entities[0],rescue.entities[1],rescue.entities[4]];
+const rescue=makeMatch({mode:'squad'});rescue.drop=0;rescue.loot=[];rescue.entities=[rescue.entities[0],rescue.entities[1],rescue.entities[5]];
 const fallen=rescue.entities[0],helper=rescue.entities[1],observer=rescue.entities[2];
 Object.assign(fallen,{x:bld.x,z:bld.z-5,y:feet,status:'down',hp:0,bleed:30});
 Object.assign(helper,{x:bld.x,z:bld.z+5,y:feet});Object.assign(observer,{x:99,z:0,y:groundHeight(99,0),human:true});
@@ -33,7 +33,7 @@ const start={x:bld.x-9,z:bld.z},end={x:bld.x+9,z:bld.z};const route=findRoute(st
 assert.ok(route.length>=2,'blocked straight route gets a detour');let previous=start;
 for(const point of route){assert.ok(clearRoute(previous,point),'all smoothed segments keep the player clear of walls');previous=point}
 assert.ok(Math.hypot(previous.x-end.x,previous.z-end.z)<1,'detour reaches the requested destination');
-const closeRescue=makeMatch({mode:'squad'});closeRescue.drop=0;closeRescue.loot=[];closeRescue.entities=[closeRescue.entities[0],closeRescue.entities[1],closeRescue.entities[4]];
+const closeRescue=makeMatch({mode:'squad'});closeRescue.drop=0;closeRescue.loot=[];closeRescue.entities=[closeRescue.entities[0],closeRescue.entities[1],closeRescue.entities[5]];
 Object.assign(closeRescue.entities[0],{x:bld.x+bld.w/2-1,z:bld.z,y:feet,status:'down',hp:0,bleed:30});
 Object.assign(closeRescue.entities[1],{x:bld.x+bld.w/2+1,z:bld.z,y:feet});Object.assign(closeRescue.entities[2],{x:99,z:0,y:groundHeight(99,0),human:true});
 for(let i=0;i<550&&closeRescue.entities[0].status==='down';i++)tick(closeRescue,.04);
@@ -41,3 +41,6 @@ assert.equal(closeRescue.entities[0].status,'alive','being near an ally through 
 const temporary={x:0,z:0,w:3,d:.25,y:0,h:2.6,wall:99};const withWall=[temporary];const wallRoute=findRoute({x:0,z:6},{x:0,z:-6},withWall);assert.ok(wallRoute.length>1);
 previous={x:0,z:6};for(const point of wallRoute){assert.ok(clearRoute(previous,point,withWall),'bot route avoids a temporary player barrier');previous=point}
 console.log('Game tests passed: solo/squad, damage, revival, cover, reload, input deduplication, doors, camera, landing, zone, bot rescue and house detours');
+
+for(const mode of ['solo','squad']){const full=makeMatch({mode,humans:Array.from({length:50},(_,i)=>({id:'human-'+i,name:'Player '+i}))});assert.equal(full.entities.length,50);assert.equal(full.entities.filter(e=>e.human).length,50);assert.equal(new Set(full.entities.map(e=>e.team)).size,mode==='solo'?50:10);for(const team of new Set(full.entities.map(e=>e.team)))assert.equal(full.entities.filter(e=>e.team===team).length,mode==='solo'?1:5)}
+assert.throws(()=>makeMatch({mode:'squad',humans:Array.from({length:51},(_,i)=>({id:String(i)}))}));

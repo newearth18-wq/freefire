@@ -1,52 +1,51 @@
-import {makeMatch,setInput,advance,living} from '../public/engine.mjs';
+import {makeMatch,setInput,advance} from '../public/engine.mjs';
 import {normalizeAppearance} from '../public/appearance.mjs';
+import {MAX_PLAYERS,MAX_TEAMS,TEAM_SIZE,QUEUE_WAIT_MS} from '../public/config.mjs';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status})};
 const nickname=value=>typeof value==='string'&&value.trim()?value.trim().slice(0,18):'ผู้รอดชีวิต';
-function roomView(room,member){return{code:room.code,id:member.id,isHost:room.members[0]?.id===member.id,state:room.match?.state??'waiting',players:room.members.map(a=>({id:a.id,name:a.name,appearance:normalizeAppearance(a.appearance),host:a.id===room.members[0]?.id,connected:Date.now()-a.seen<12000})),match:room.match??null}}
-function database(env){if(!env.DB)fail('ห้องออนไลน์ยังไม่พร้อม กรุณาลองอีกครั้ง',503);return env.DB}
+const validMode=value=>{if(!['solo','squad'].includes(value))fail('เลือกโหมดเล่นเดี่ยวหรือเล่นทีม');return value};
+function compactMatch(match){if(!match)return null;return{...match,entities:match.entities.map(actor=>{const e={...actor};for(const key of['input','nav','targetId','senseAt','sight','hadSight','botTimer','strafe','stuck','lastInput','downedBy'])delete e[key];return e})}}
+function roomView(room,member){return{code:room.code,id:member.id,mode:room.mode,isHost:room.members[0]?.id===member.id,selfTeam:member.team,queue:!!room.queue,startsAt:room.startsAt??null,capacity:MAX_PLAYERS,teamSize:room.mode==='squad'?TEAM_SIZE:1,state:room.match?.state??'waiting',players:room.members.map(a=>({id:a.id,name:a.name,appearance:normalizeAppearance(a.appearance),team:a.team,slot:a.slot,host:a.id===room.members[0]?.id,connected:Date.now()-a.seen<12000})),match:compactMatch(room.match)}}
+function normalizeRoom(room){room.mode??='squad';room.members.forEach((a,i)=>{a.team??=room.mode==='solo'?i:Math.floor(i/TEAM_SIZE);a.slot??=room.mode==='solo'?0:i%TEAM_SIZE});return room}
 function authenticate(room,token){const member=room.members.find(a=>a.token===token);if(!member)fail('เซสชันห้องหมดอายุ กรุณาเข้าห้องใหม่',401);return member}
-export async function api(request,env){
- try{
- const url=new URL(request.url);if(request.method!=='POST')return json({error:'Method not allowed'},405);
- if(request.headers.get('Origin')&&request.headers.get('Origin')!==url.origin)fail('ไม่อนุญาตคำขอจากเว็บไซต์อื่น',403);
- if(Number(request.headers.get('Content-Length')??0)>12000)fail('คำขอมีขนาดใหญ่เกินไป',413);
- const raw=await request.text();if(raw.length>12000)fail('คำขอมีขนาดใหญ่เกินไป',413);let input;try{input=JSON.parse(raw)}catch{fail('รูปแบบคำขอไม่ถูกต้อง')}
- if(!input||typeof input!=='object'||Array.isArray(input))fail('รูปแบบคำขอไม่ถูกต้อง');
- const db=database(env),operation=url.pathname.split('/').at(-1),now=Date.now();
- if(operation==='create'){
-  await db.prepare('DELETE FROM rooms WHERE code IN (SELECT code FROM rooms WHERE expires<? LIMIT 20)').bind(now).run();
-  const member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),appearance:normalizeAppearance(input.appearance),seen:now};
-  for(let n=0;n<4;n++){const bytes=crypto.getRandomValues(new Uint8Array(6)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=[...bytes].map(b=>alphabet[b%32]).join('');const room={code,members:[member],match:null,lastTick:now};try{await db.prepare('INSERT INTO rooms (code,data,revision,expires) VALUES (?,?,0,?)').bind(code,JSON.stringify(room),now+3600000).run();return json({...roomView(room,member),token:member.token},201)}catch(e){if(!String(e).includes('UNIQUE'))throw e}}
-  fail('สร้างห้องไม่สำเร็จ กรุณาลองอีกครั้ง',503);
- }
- const code=typeof input.code==='string'?input.code.toUpperCase().replace(/\s/g,''):'';if(!/^[A-Z2-9]{6}$/.test(code))fail('กรุณาใส่รหัสห้อง 6 ตัว');
- for(let attempt=0;attempt<6;attempt++){
-  const row=await db.prepare('SELECT data,revision,expires FROM rooms WHERE code=?').bind(code).first();if(!row||row.expires<now)fail('ไม่พบห้อง หรือห้องหมดอายุแล้ว',404);
-  const room=JSON.parse(row.data);if(!room.match)room.members=room.members.filter(a=>a.token===input.token||now-a.seen<30000);let member;
-  if(operation==='join'){
-   if(input.token)member=room.members.find(a=>a.token===input.token);
-   if(!member){if(room.match)fail('แมตช์เริ่มแล้ว ให้เจ้าของห้องเปิดแมตช์ใหม่',409);if(room.members.length>=4)fail('ห้องเต็มแล้ว (สูงสุด 4 คน)',409);member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),appearance:normalizeAppearance(input.appearance),seen:now};room.members.push(member)}
-  }else member=authenticate(room,input.token);member.seen=now;
-  if(operation==='start'){
-   if(room.members[0]?.id!==member.id)fail('เจ้าของห้องเท่านั้นที่เริ่มแมตช์ได้',403);
-   if(room.match?.state==='playing')fail('แมตช์กำลังเล่นอยู่',409);
-   room.match=makeMatch({mode:'squad',humans:room.members.map(a=>({id:a.id,name:a.name,appearance:a.appearance})),seed:now>>>0});room.lastTick=now;
-  }else if(operation==='appearance'){
-   if(room.match?.state==='playing')fail('เปลี่ยนชุดได้เมื่อจบแมตช์แล้ว',409);
-   member.appearance=normalizeAppearance(input.appearance);
-  }else if(operation==='leave'){
-   room.members=room.members.filter(a=>a.id!==member.id);if(room.match){const actor=room.match.entities.find(a=>a.id===member.id);if(actor){actor.human=false;actor.input={};actor.name+=' (บอต)'}}
-  }else if(!['join','poll'].includes(operation))fail('ไม่รองรับคำสั่งนี้',404);
-  if(room.match?.state==='playing'){
-   if(operation==='poll'&&input.controls&&typeof input.controls==='object')setInput(room.match,member.id,input.controls);
-   const seconds=Math.min(.75,Math.max(0,(now-room.lastTick)/1000));advance(room.match,seconds);room.lastTick=now;
-   if(!room.match.entities.some(a=>a.team===0&&living(a))){room.match.state='ended';room.match.winner=1}
-  }
-  const result=await db.prepare('UPDATE rooms SET data=?,revision=revision+1 WHERE code=? AND revision=?').bind(JSON.stringify(room),code,row.revision).run();
-  if((result.meta?.changes??0)>0)return json(operation==='leave'?{left:true}:{...roomView(room,member),...(operation==='join'?{token:member.token}:{})});
- }
- return json({error:'ห้องกำลังซิงก์ กรุณาลองอีกครั้ง'},409);
- }catch(error){if(!error.status)console.error('Room request failed',error.message);return json({error:error.status?error.message:'เชื่อมต่อห้องไม่ได้ กรุณาลองอีกครั้ง'},error.status??503)}
-}
-export default{async fetch(request,env,ctx){const url=new URL(request.url);if(url.pathname.startsWith('/api/rooms/'))return api(request,env);return env.ASSETS.fetch(request)}};
+function seat(room,preferred,except){const per=room.mode==='solo'?1:TEAM_SIZE,teams=room.mode==='solo'?MAX_PLAYERS:MAX_TEAMS;if(preferred!==undefined&&(!Number.isInteger(preferred)||preferred<0||preferred>=teams))fail('หมายเลขทีมไม่ถูกต้อง');for(const team of preferred===undefined?Array.from({length:teams},(_,i)=>i):[preferred])for(let slot=0;slot<per;slot++)if(!room.members.some(a=>a.id!==except&&a.team===team&&a.slot===slot))return{team,slot};fail(preferred===undefined?'ห้องเต็มแล้ว (สูงสุด 50 คน)':'ทีมนี้เต็มแล้ว (สูงสุด 5 คน)',409)}
+function begin(room,now){if(room.mode==='solo')room.members.forEach((a,i)=>{a.team=i;a.slot=0});room.match=makeMatch({mode:room.mode,humans:room.members.map(a=>({id:a.id,name:a.name,appearance:a.appearance,team:a.team,slot:a.slot})),seed:now>>>0});room.lastTick=now;room.startsAt=null}
+function controls(value){const finite=n=>Number.isFinite(n)?n:0;const c=value&&typeof value==='object'?value:{};return{mx:Math.max(-1,Math.min(1,finite(c.mx))),mz:Math.max(-1,Math.min(1,finite(c.mz))),yaw:finite(c.yaw)%(Math.PI*2),pitch:Math.max(-.75,Math.min(.65,finite(c.pitch))),fire:c.fire===true,aim:c.aim===true,sprint:c.sprint===true,revive:c.revive===true,actions:Array.isArray(c.actions)?c.actions.filter(a=>a&&Number.isSafeInteger(a.seq)&&a.seq>0&&['fire','jump','crouch','reload','heal','swap','wall'].includes(a.type)).slice(-12).map(a=>({seq:a.seq,type:a.type,...(Number.isInteger(a.index)&&a.index>=0&&a.index<3?{index:a.index}:{})})):[]}}
+async function cleanup(db,now){await db.batch([db.prepare('DELETE FROM room_inputs WHERE expires<?').bind(now),db.prepare('DELETE FROM rooms WHERE expires<? AND queue_mode IS NOT NULL').bind(now),db.prepare('DELETE FROM rooms WHERE code IN (SELECT code FROM rooms WHERE expires<? LIMIT 20)').bind(now)])}
+function code(){const bytes=crypto.getRandomValues(new Uint8Array(6)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return[...bytes].map(b=>alphabet[b%32]).join('')}
+async function create(db,input,now,queue){await cleanup(db,now);const mode=validMode(input.mode??'squad');for(let n=0;n<10;n++){
+ if(queue){const open=await db.prepare('SELECT code FROM rooms WHERE queue_mode=? AND expires>?').bind(mode,now).first();if(open){try{return await updateRoom(db,open.code,'join',input,now)}catch(e){if(e.status!==409&&e.status!==404)throw e;continue}}}
+ const member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),appearance:normalizeAppearance(input.appearance),seen:now,team:0,slot:0},room={code:code(),mode,queue,members:[member],match:null,lastTick:now,startsAt:queue?now+QUEUE_WAIT_MS:null};
+ try{await db.prepare('INSERT INTO rooms (code,data,revision,expires,queue_mode) VALUES (?,?,0,?,?)').bind(room.code,JSON.stringify(room),now+3600000,queue?mode:null).run();return json({...roomView(room,member),token:member.token},201)}catch(e){if(!String(e).includes('UNIQUE'))throw e}
+ }fail('กำลังจัดห้อง กรุณาลองอีกครั้ง',503)}
+async function updateRoom(db,code,operation,input,now){let inputWritten=false;for(let attempt=0;attempt<12;attempt++){
+ const row=await db.prepare('SELECT data,revision,expires FROM rooms WHERE code=?').bind(code).first();if(!row||row.expires<now)fail('ไม่พบห้อง หรือห้องหมดอายุแล้ว',404);const room=normalizeRoom(JSON.parse(row.data));let member;
+ if(!room.match)room.members=room.members.filter(a=>a.token===input.token||now-a.seen<30000);
+ if(operation==='join'){if(input.token)member=room.members.find(a=>a.token===input.token);if(!member){if(room.match)fail('แมตช์เริ่มแล้ว กรุณาค้นหาห้องใหม่',409);if(room.members.length>=MAX_PLAYERS)fail('ห้องเต็มแล้ว (สูงสุด 50 คน)',409);member={id:crypto.randomUUID(),token:crypto.randomUUID(),name:nickname(input.name),appearance:normalizeAppearance(input.appearance),seen:now,...seat(room,input.team)};room.members.push(member)}}else member=authenticate(room,input.token);
+ if(operation==='poll'&&room.match?.state==='playing'){
+  if(!inputWritten){await db.prepare('INSERT INTO room_inputs (code,member_id,data,updated,expires) VALUES (?,?,?,?,?) ON CONFLICT(code,member_id) DO UPDATE SET data=excluded.data,updated=excluded.updated,expires=excluded.expires').bind(code,member.id,JSON.stringify({matchId:room.match.id,controls:controls(input.controls)}),now,row.expires).run();inputWritten=true}
+  // Independent input rows avoid rewriting a 50-player room for every control packet.
+  // Compare-and-swap permits only one worker to advance each shared snapshot.
+  if(now-room.lastTick<70)return json(roomView(room,member));
+  const inputs=await db.prepare('SELECT member_id,data,updated FROM room_inputs WHERE code=? AND updated>?').bind(code,now-1500).all();for(const entry of inputs.results){const packet=JSON.parse(entry.data);if(packet.matchId!==room.match.id)continue;const actor=room.match.entities.find(a=>a.id===entry.member_id);if(actor?.disconnected){actor.human=true;delete actor.disconnected}setInput(room.match,entry.member_id,packet.controls);const player=room.members.find(a=>a.id===entry.member_id);if(player)player.seen=entry.updated}
+  for(const actor of room.match.entities){const owner=room.members.find(a=>a.id===actor.id);if(actor.human&&owner&&now-owner.seen>15000){actor.human=false;actor.input={};actor.disconnected=true}else if(owner&&now-owner.seen<1500&&actor.disconnected){actor.human=true;delete actor.disconnected}}
+  advance(room.match,Math.min(.75,Math.max(0,(now-room.lastTick)/1000)));room.lastTick=now;
+ }else member.seen=now;
+ if(operation==='start'){if(room.members[0]?.id!==member.id)fail('เจ้าของห้องเท่านั้นที่เริ่มแมตช์ได้',403);if(room.match?.state==='playing')fail('แมตช์กำลังเล่นอยู่',409);begin(room,now)}
+ else if(operation==='appearance'){if(room.match?.state==='playing')fail('เปลี่ยนชุดได้เมื่อจบแมตช์แล้ว',409);member.appearance=normalizeAppearance(input.appearance)}
+ else if(operation==='team'){if(room.mode!=='squad')fail('โหมดเดี่ยวไม่มีทีม');if(room.match)fail('เปลี่ยนทีมได้ก่อนเริ่มแมตช์',409);Object.assign(member,seat(room,input.team,member.id))}
+ else if(operation==='leave'){room.members=room.members.filter(a=>a.id!==member.id);if(room.match){const actor=room.match.entities.find(a=>a.id===member.id);if(actor){actor.human=false;actor.input={};actor.name+=' (บอต)'}}}
+ else if(!['join','poll'].includes(operation))fail('ไม่รองรับคำสั่งนี้',404);
+ if(!room.match&&room.members.length&&(room.members.length===MAX_PLAYERS||room.queue&&now>=room.startsAt))begin(room,now);
+ const queueMode=room.queue&&!room.match&&room.members.length?room.mode:null;
+ const result=await db.prepare('UPDATE rooms SET data=?,revision=revision+1,queue_mode=? WHERE code=? AND revision=?').bind(JSON.stringify(room),queueMode,code,row.revision).run();
+ if((result.meta?.changes??0)>0)return json(operation==='leave'?{left:true}:{...roomView(room,member),...(operation==='join'?{token:member.token}:{})});
+ // Stagger conflicting writers instead of exhausting every request's query budget.
+ await new Promise(resolve=>setTimeout(resolve,Math.min(80,4*(attempt+1))+Math.random()*20));
+ }fail('ห้องกำลังซิงก์ กรุณาลองอีกครั้ง',409)}
+export async function api(request,env){try{
+ const url=new URL(request.url);if(request.method!=='POST')return json({error:'Method not allowed'},405);if(request.headers.get('Origin')&&request.headers.get('Origin')!==url.origin)fail('ไม่อนุญาตคำขอจากเว็บไซต์อื่น',403);if(Number(request.headers.get('Content-Length')??0)>12000)fail('คำขอมีขนาดใหญ่เกินไป',413);const raw=await request.text();if(raw.length>12000)fail('คำขอมีขนาดใหญ่เกินไป',413);let input;try{input=JSON.parse(raw)}catch{fail('รูปแบบคำขอไม่ถูกต้อง')}if(!input||typeof input!=='object'||Array.isArray(input))fail('รูปแบบคำขอไม่ถูกต้อง');if(!env.DB)fail('ห้องออนไลน์ยังไม่พร้อม กรุณาลองอีกครั้ง',503);
+ const operation=url.pathname.split('/').at(-1),now=Date.now();if(operation==='create'||operation==='matchmake')return await create(env.DB,input,now,operation==='matchmake');const roomCode=typeof input.code==='string'?input.code.toUpperCase().replace(/\s/g,''):'';if(!/^[A-Z2-9]{6}$/.test(roomCode))fail('กรุณาใส่รหัสห้อง 6 ตัว');return await updateRoom(env.DB,roomCode,operation,input,now);
+ }catch(error){if(!error.status)console.error('Room request failed',error.message);return json({error:error.status?error.message:'เชื่อมต่อห้องไม่ได้ กรุณาลองอีกครั้ง'},error.status??503)}}
+export default{async fetch(request,env){const url=new URL(request.url);if(url.pathname.startsWith('/api/rooms/'))return api(request,env);return env.ASSETS.fetch(request)}};

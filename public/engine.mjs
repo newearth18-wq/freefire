@@ -2,18 +2,21 @@ import {findRoute} from './navigation.mjs';
 import {STATIC_SOLIDS,groundHeight,moveSlide,canStand,rayBox,lineClear,seeded,cameraPosition} from './arena.mjs';
 import {WEAPONS,zoneAt,clamp} from './rules.mjs';
 import {normalizeAppearance,botAppearance} from './appearance.mjs';
-export const TEAM_COLORS=['#46dcca','#ff846d','#bc94ff','#f1c75c'];
+import {MAX_PLAYERS,TEAM_SIZE,MAX_TEAMS} from './config.mjs';
+export const TEAM_COLORS=['#46dcca','#ff846d','#bc94ff','#f1c75c','#8fc4ff','#ffa7d2','#a4d675','#ffb46b','#ddd7bc','#a2a7ed'];
 export function makeMatch({mode='solo',humans=[{id:'you',name:'ผู้รอดชีวิต'}],seed=18}={}){
+ if(!['solo','squad'].includes(mode)||humans.length>MAX_PLAYERS)throw new RangeError('Invalid match capacity');
+ const assigned=new Map(),ids=new Set();for(let n=0;n<humans.length;n++){const h=humans[n];if(ids.has(h.id))throw new RangeError('Duplicate player');ids.add(h.id);let team=mode==='solo'?n:Number.isInteger(h.team)?h.team:Math.floor(n/TEAM_SIZE),slot=mode==='solo'?0:Number.isInteger(h.slot)?h.slot:0;if(team<0||team>=(mode==='solo'?MAX_PLAYERS:MAX_TEAMS)||slot<0||slot>=TEAM_SIZE)throw new RangeError('Invalid team');if(!Number.isInteger(h.slot)&&mode==='squad')while(assigned.has(team+':'+slot)&&slot<TEAM_SIZE)slot++;if(slot>=TEAM_SIZE||assigned.has(team+':'+slot))throw new RangeError('Team is full');assigned.set(team+':'+slot,h)}
  const m={id:'match-'+seed,mode,state:'playing',time:0,drop:6,seed:seed>>>0,entities:[],loot:[],walls:[],events:[],eventSeq:0,zone:108,winner:null};
- const rand=seeded(seed),groups=mode==='solo'?16:4,per=mode==='solo'?1:4;
+ const rand=seeded(seed),groups=mode==='solo'?MAX_PLAYERS:MAX_TEAMS,per=mode==='solo'?1:TEAM_SIZE;
  for(let team=0;team<groups;team++)for(let i=0;i<per;i++){
-  const human=team===0?humans[i]:null,a=mode==='solo'?team/groups*Math.PI*2:team/4*Math.PI*2+Math.PI/4,r=mode==='solo'?50+rand()*35:84;
+  const human=assigned.get(team+':'+i),a=team/groups*Math.PI*2+(mode==='squad'?Math.PI/4:0),r=mode==='solo'?50+rand()*35:84;
   let x=Math.sin(a)*r+(i%2)*3,z=Math.cos(a)*r+Math.floor(i/2)*3;
   if(team===0){x=i%2*2.4-1.2;z=31+Math.floor(i/2)*2.4}for(let n=0;n<100&&!canStand(x,z,STATIC_SOLIDS,.8,groundHeight(x,z));n++){x+=(rand()-.5)*5;z+=(rand()-.5)*5}
   m.entities.push({id:human?.id??'bot-'+team+'-'+i,name:human?.name??(team===0&&mode==='squad'?'เพื่อน '+i:'ผู้เล่น '+String(team*per+i+1).padStart(2,'0')),human:!!human,appearance:human?normalizeAppearance(human.appearance):botAppearance(team,i),team,slot:i,x,z,y:groundHeight(x,z)+25,yaw:0,pitch:-.045,hp:100,armor:50,status:'alive',bleed:30,revive:0,kills:0,medkits:2,wallCharges:3,weapon:0,weapons:WEAPONS.map((s,n)=>({ammo:s.mag,reserve:120,owned:n<2})),shot:0,reload:0,heal:0,jump:0,vy:0,aim:false,crouch:false,speed:0,input:{},lastInput:0,lastAction:0,botTimer:2+rand()*2,strafe:rand()<.5?-1:1,stuck:0,downedBy:null});
  }
- for(let i=0;i<55;i++){const a=rand()*Math.PI*2,r=8+rand()*88;let x=Math.sin(a)*r,z=Math.cos(a)*r;if(!canStand(x,z,STATIC_SOLIDS,1.2,groundHeight(x,z)))continue;m.loot.push({id:i,x,z,y:groundHeight(x,z),type:i%8===0?'weapon':i%6===0?'wall':i%4===0?'armor':i%3===0?'med':'ammo',weapon:2})}
- m.loot.push({id:100,x:0,z:22,y:0,type:'weapon',weapon:2},{id:101,x:4,z:31,y:0,type:'med'},{id:102,x:-4,z:31,y:0,type:'armor'});return m;
+ for(let i=0;i<150;i++){const a=rand()*Math.PI*2,r=8+rand()*88;let x=Math.sin(a)*r,z=Math.cos(a)*r;if(!canStand(x,z,STATIC_SOLIDS,1.2,groundHeight(x,z)))continue;m.loot.push({id:i,x,z,y:groundHeight(x,z),type:i%8===0?'weapon':i%6===0?'wall':i%4===0?'armor':i%3===0?'med':'ammo',weapon:2})}
+ m.loot.push({id:200,x:0,z:22,y:0,type:'weapon',weapon:2},{id:201,x:4,z:31,y:0,type:'med'},{id:202,x:-4,z:31,y:0,type:'armor'});return m;
 }
 function random(m){m.seed=(m.seed*1664525+1013904223)>>>0;return m.seed/4294967296}
 function event(m,type,data){m.events.push({seq:++m.eventSeq,time:m.time,type,...data});if(m.events.length>60)m.events.shift()}
