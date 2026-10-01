@@ -10,21 +10,22 @@
 <body>
 <canvas id="game" aria-label="สนามเกมสามมิติ"></canvas>
 <div class="vignette"></div>
-<header class="brand" id="brand"><span class="brand-mark">LI</span><div><b>LAST ISLAND</b><small>เกาะผู้รอดชีวิต</small></div><span class="version">ต้นแบบ · เล่นกับบอต</span></header>
+<header class="brand" id="brand"><span class="brand-mark">LI</span><div><b>LAST ISLAND</b><small>เกาะผู้รอดชีวิต</small></div><span class="version">SURVIVAL · SEASON 03</span></header>
 <div id="loading" role="status">กำลังเตรียมเกาะ…</div>
-<section id="lobby" class="panel">
-<div class="eyebrow"><span></span> SOLO SURVIVAL · 12 ผู้เล่น</div>
-<h1>เกาะเดียว<br><em>ผู้รอดคนเดียว</em></h1>
-<p>เก็บอาวุธ ใช้ที่กำบัง และอยู่ในวงปลอดภัย<br>เอาชนะบอตอีก 11 คนเพื่อเป็นผู้รอดคนสุดท้าย</p>
-<div class="match-details"><span>▧ <b>เกาะอรุณ</b></span><span>◷ <b>ประมาณ 4 นาที</b></span></div>
+<section id="lobby" class="lobby">
+<div class="pilot"><label for="nickname">ชื่อผู้เล่น</label><input id="nickname" maxlength="18" value="ผู้รอดชีวิต" autocomplete="nickname"></div>
+<div class="mode-select" aria-label="เลือกโหมด"><button id="mode-solo" class="mode selected" aria-pressed="true"><small>01 / SOLO</small><b>เล่นเดี่ยว</b><span>ทุกคนคือคู่ต่อสู้</span></button><button id="mode-squad" class="mode" aria-pressed="false"><small>02 / SQUAD</small><b>เล่นทีม</b><span>อยู่รอดด้วยกัน 4 คน</span></button></div>
+<div class="deploy"><div class="map-label">เกาะอรุณ <span>สนามเอาตัวรอด</span></div><h1 id="mode-title">เล่นเดี่ยว</h1><p id="mode-description">ร่อนลงเกาะ เก็บอาวุธ และเป็นผู้รอดคนสุดท้าย</p>
+<div id="online-options" hidden><div class="room-actions"><button id="create-room" class="secondary">สร้างห้องออนไลน์</button><div class="join-row"><input id="room-code" maxlength="6" placeholder="รหัสห้อง 6 ตัว" aria-label="รหัสห้อง"><button id="join-room" class="secondary">เข้าห้อง</button></div></div></div>
 <button id="start" class="primary" disabled>กำลังเตรียมเกม…</button>
-<details class="instructions"><summary>วิธีเล่นและการควบคุม</summary><p><b>คอม:</b> WASD / ลูกศรเดิน · ลากเมาส์เพื่อมอง · คลิกขวาเล็ง · คลิกซ้ายยิง · Shift วิ่ง · Space กระโดด · C ย่อ · G กำแพง · R เติมกระสุน · Q รักษา · E เปลี่ยนปืน · Esc พัก</p><p><b>มือถือ / แท็บเล็ต:</b> จอยซ้ายเดิน · ลากจอขวาเพื่อมอง · ลากปุ่มยิงเพื่อยิงและหันพร้อมกัน · กระโดด ย่อ เล็ง และกำแพงที่ปุ่มขวา · แนะนำแนวนอน</p><p>เก็บของอัตโนมัติเมื่อเดินเข้าใกล้ อาวุธสีทอง กระสุนสีฟ้า และยาเขียว</p></details>
-<div class="lobby-footer">3D BATTLE ROYALE <span>มือถือ · แท็บเล็ต · คอมพิวเตอร์</span></div>
+<p id="lobby-error" role="status"></p></div>
+<details class="instructions"><summary>การควบคุม</summary><p><b>คอม:</b> WASD เดิน · Shift วิ่ง · Space กระโดด · C ย่อ · คลิกขวาเล็ง · คลิกซ้ายยิง · R เติมกระสุน · Q รักษา · G กำแพง · F ชุบเพื่อน · 1/2/3 เปลี่ยนปืน · Esc พัก</p><p><b>มือถือ:</b> จอยซ้ายเดิน ลากจอขวามอง ลากปุ่มยิงเพื่อหันและยิงพร้อมกัน ใช้ปุ่มชุบเมื่ออยู่ใกล้เพื่อนที่ล้ม</p></details>
 </section>
+<section id="room-panel" class="overlay" hidden><div class="room-modal"><small>SQUAD / ONLINE</small><h2>รวมทีมก่อนลงเกาะ</h2><div class="room-number">รหัสห้อง <strong id="room-label"></strong><button id="copy-room" class="secondary">คัดลอก</button></div><div id="room-roster"></div><p id="room-status" role="status"></p><button id="launch-room" class="primary">เริ่มแมตช์</button><button id="leave-room" class="secondary">ออกจากห้อง</button></div></section>
 <div id="hud" hidden>
 <div class="top-hud">
 <div class="hud-logo">LAST <span>ISLAND</span></div>
-<div class="counters"><div><small>เหลือรอด</small><strong id="alive">12</strong></div><div><small>กำจัด</small><strong id="kills">0</strong></div></div>
+<div class="counters"><span id="match-mode">SOLO</span><div><small>เหลือรอด</small><strong id="alive">12</strong></div><div><small>กำจัด</small><strong id="kills">0</strong></div></div>
 <div class="utility"><button id="sound" aria-label="เปิดหรือปิดเสียง">เสียง: เปิด</button><button id="pause" aria-label="พักเกม">Ⅱ</button><button id="fullscreen" aria-label="เต็มหน้าจอ">⛶</button></div>
 </div>
 <div class="zone-info" id="zone-info"><span class="zone-dot"></span><span id="zone-text">วงบีบใน 00:40</span></div>
@@ -33,11 +34,11 @@
 <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
 <div id="hitmarker">×</div><div id="damage"></div>
 <div class="equipment"><div class="weapon-line"><div><small id="weapon-kind">ASSAULT RIFLE</small><strong id="weapon-name">AR-7</strong></div><div class="ammo"><b id="ammo">30</b><span>/ <span id="reserve">150</span></span></div></div><div class="weapon-slots"><button id="slot-0" aria-label="เลือกปืน AR-7"><small>1</small> AR-7</button><button id="slot-1" aria-label="เลือกปืน VECTOR"><small>2</small> VECTOR</button><button id="slot-2" aria-label="เลือกปืน M-8"><small>3</small> M-8</button></div></div>
-<div id="headshot" hidden>HEADSHOT</div>
+<div id="team-panel" hidden></div><div id="connection" hidden></div><div id="headshot" hidden>HEADSHOT</div>
 <div class="feed" id="feed" aria-live="polite"></div>
 <div id="toast" role="status"></div>
-<div class="player-status"><div class="health-label"><span>HP <b id="hp">100</b></span><span id="med-label">ยา × 2</span></div><div class="health-track"><div id="health-bar"></div></div><div id="reload-progress" hidden><span></span><b>กำลังเติมกระสุน</b></div></div>
-<div id="desktop-hint">WASD เดิน · Shift วิ่ง <span>Space กระโดด · C ย่อ</span> G กำแพง · Q รักษา <span>คลิกขวา เล็ง · R เติมกระสุน</span> 1 / 2 / 3 เปลี่ยนปืน</div>
+<div class="player-status"><div class="health-label"><span>HP <b id="hp">100</b></span><span id="med-label">ยา × 2</span></div><div class="health-track"><div id="health-bar"></div></div><div class="armor-track"><div id="armor-bar"></div></div><div id="down-status" hidden></div><div id="reload-progress" hidden><span></span><b>กำลังเติมกระสุน</b></div></div>
+<div id="revive-prompt" hidden><button id="revive" class="secondary">F · ชุบเพื่อน</button><div id="revive-bar"></div></div><div id="desktop-hint">WASD เดิน · Shift วิ่ง <span>Space กระโดด · C ย่อ</span> G กำแพง · Q รักษา · F ชุบ <span>คลิกขวา เล็ง · R เติมกระสุน</span> 1 / 2 / 3 เปลี่ยนปืน</div>
 <div id="touch-controls">
 <div id="joystick" aria-label="จอยเดิน"><div id="stick"></div></div>
 <div id="look-area" aria-label="ลากเพื่อมอง"></div>
@@ -46,6 +47,6 @@
 </div>
 <section id="pause-panel" class="overlay" hidden><div class="modal"><small>LAST ISLAND</small><h2>พักเกม</h2><p>สนามรบกำลังรอคุณ</p><button id="resume" class="primary">กลับไปเล่น</button><button id="quit" class="secondary">กลับหน้าหลัก</button></div></section>
 <section id="result" class="overlay" hidden><div class="modal"><div class="eyebrow" id="result-caption">MATCH COMPLETE</div><h2 id="result-title">ผู้รอดคนสุดท้าย</h2><p id="result-description"></p><div class="result-stats"><div><small>อันดับ</small><b id="rank">#1</b></div><div><small>กำจัด</small><b id="result-kills">0</b></div><div><small>เวลา</small><b id="result-time">0:00</b></div></div><button id="replay" class="primary">เล่นอีกครั้ง</button><button id="home" class="secondary">กลับหน้าหลัก</button></div></section>
-<script type="module" src="./game.mjs"></script>
+<script type="module" src="./client.mjs"></script>
 </body></html>
 

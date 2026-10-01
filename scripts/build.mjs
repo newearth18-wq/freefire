@@ -1,0 +1,11 @@
+import {mkdir,cp,rm} from 'node:fs/promises';
+import {resolve,join} from 'node:path';
+import {build} from 'esbuild';
+const output=resolve('dist');if(output!==join(process.cwd(),'dist'))throw Error('Unexpected output directory');
+await rm(output,{recursive:true,force:true});
+await mkdir('dist/client',{recursive:true});await mkdir('dist/server',{recursive:true});await mkdir('dist/.openai',{recursive:true});
+await cp('public','dist/client',{recursive:true});
+await build({entryPoints:['server/worker.mjs'],outfile:'dist/server/index.js',bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true});
+await cp('.openai/hosting.json','dist/.openai/hosting.json');
+await cp('drizzle','dist/.openai/drizzle',{recursive:true});
+console.log('Built Worker API, game assets, and database migrations');

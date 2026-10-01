@@ -1,1 +1,17 @@
-{"name":"last-island","version":"2.0.0","private":true,"type":"module","scripts":{"start":"node scripts/server.mjs","check":"node --check dist/game.mjs && node --check dist/world.mjs","test":"node scripts/verify.mjs && node scripts/verify-world.mjs"}}
+{
+  "name": "last-island",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/dev-server.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.3",
+    "esbuild": "0.25.12"
+  }
+}
