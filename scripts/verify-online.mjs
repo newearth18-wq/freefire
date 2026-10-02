@@ -4,7 +4,7 @@ import {api} from '../server/worker.mjs';
 import {DEFAULT_APPEARANCE} from '../public/appearance.mjs';
 import {localDatabase} from './local-db.mjs';
 const DB=await localDatabase();
-async function call(op,body,origin='https://test.example'){const response=await api(new Request('https://test.example/api/rooms/'+op,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)}),{DB});return{status:response.status,body:await response.json()}}
+async function call(op,body,origin='https://test.example',teacher=false){const response=await api(new Request('https://test.example/api/rooms/'+op,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...((teacher||body?.lesson)?{'oai-authenticated-user-id':'online-teacher','oai-authenticated-user-email':'teacher@example.test'}:{})},body:JSON.stringify(body)}),{DB});return{status:response.status,body:await response.json()}}
 const auth=player=>({code:player.code,token:player.token});
 async function mutate(code,fn){const row=await DB.prepare('SELECT data FROM rooms WHERE code=?').bind(code).first(),room=JSON.parse(row.data);fn(room);await DB.prepare('UPDATE rooms SET data=? WHERE code=?').bind(JSON.stringify(room),code).run()}
 try{
@@ -34,7 +34,7 @@ try{
  const queue=(await call('matchmake',{mode:'solo',name:'Queue host'})).body,other=(await call('matchmake',{mode:'solo',name:'Queue friend'})).body;
  assert.equal(queue.code,other.code);assert.equal(queue.queue,true);assert.equal(queue.teamSize,1);assert.equal((await call('team',{...auth(queue),team:1})).status,400);
  await mutate(queue.code,r=>r.startsAt=Date.now()-60000);const queued=(await call('poll',auth(queue))).body;assert.equal(queued.match,null,'a public room does not start after waiting');assert.equal(queued.startsAt,null);assert.equal((await call('start',auth(other))).status,403);const fill=(await call('start',auth(queue))).body.match;assert.equal(fill.entities.length,50);assert.equal(fill.entities.filter(e=>e.human).length,2);assert.equal(new Set(fill.entities.map(e=>e.team)).size,50);
- assert.equal(fill.educational,true,'public matchmaking includes sample questions');const disabled=(await call('create',{mode:'solo',lesson:{enabled:false}})).body;assert.equal(disabled.lesson.enabled,false);assert.equal((await call('start',auth(disabled))).body.match.educational,false,'teacher can explicitly disable the lesson');
+ assert.equal(fill.educational,true,'public matchmaking includes sample questions');const disabled=(await call('create',{mode:'solo',lesson:{enabled:false}})).body;assert.equal(disabled.lesson.enabled,false);assert.equal((await call('start',auth(disabled),'https://test.example',true)).body.match.educational,false,'teacher can explicitly disable the lesson');
  const next=(await call('matchmake',{mode:'solo'})).body;assert.notEqual(next.code,queue.code);
  const publicClients=await Promise.all(Array.from({length:50},(_,i)=>call('matchmake',{mode:'squad',name:'Public '+i})));
  assert.ok(publicClients.every(r=>[200,201].includes(r.status)));assert.equal(new Set(publicClients.map(r=>r.body.code)).size,1,'concurrent public matchmaking uses one waiting room');

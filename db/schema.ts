@@ -19,3 +19,11 @@ export const learnerProfiles=sqliteTable('learner_profiles',{
 export const learningRewards=sqliteTable('learning_rewards',{
  profileToken:text('profile_token').notNull(),matchId:text('match_id').notNull(),questionId:text('question_id').notNull(),stars:integer('stars').notNull(),
 },t=>[primaryKey({columns:[t.profileToken,t.matchId,t.questionId]})]);
+export const teacherAccounts=sqliteTable('teacher_accounts',{
+ id:text('id').primaryKey(),created:integer('created').notNull(),
+});
+export const teacherQuestionSets=sqliteTable('teacher_question_sets',{
+ id:text('id').primaryKey(),ownerId:text('owner_id').notNull().references(()=>teacherAccounts.id),
+ title:text('title').notNull(),mapId:text('map_id').notNull(),lesson:text('lesson').notNull(),questionCount:integer('question_count').notNull(),
+ revision:integer('revision').notNull().default(0),created:integer('created').notNull(),updated:integer('updated').notNull(),
+},t=>[index('teacher_sets_owner_updated').on(t.ownerId,t.updated)]);
