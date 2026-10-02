@@ -12,6 +12,10 @@ const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset
 prepareCharacter(gltf);
 const avatars=[makeAvatar(0),makeAvatar(1)],point=new T.Vector3();
 const silhouettes=new Set();
+const cached=avatars[0],traverse=cached.userData.model.traverse;
+cached.userData.model.traverse=()=>{throw Error('Animation must reuse cached bones rather than traversing the character each frame')};
+animateAvatar(cached,{status:'alive',speed:0,crouch:false,pitch:0},1/60);
+cached.userData.model.traverse=traverse;assert.equal(cached.userData.bones.length,62);
 for(let i=0;i<WEAPONS.length;i++){setAvatarWeapon(avatars[0],i);setAvatarWeapon(avatars[1],i);const gun=avatars[0].userData.gun;assert.ok(gun.children.length>0&&gun.children.length<=5,'weapon parts remain batched');assert.equal(gun.children[0].geometry,avatars[1].userData.gun.children[0].geometry,'avatars share cached weapon geometry');assert.ok(new T.Box3().setFromObject(gun).getSize(new T.Vector3()).length()>0);
  const hash=createHash('sha256');let triangles=0;for(const mesh of gun.children){const p=mesh.geometry.attributes.position;triangles+=p.count/3;assert.ok(p.array.every(Number.isFinite),'weapon vertices remain finite');hash.update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength));assert.ok(mesh.material.roughness>=.2&&mesh.material.roughness<=.8,'the finish uses bounded PBR values')}assert.ok(triangles<5000,'each weapon stays below 5k triangles');silhouettes.add(hash.digest('hex'))}
 assert.equal(silhouettes.size,WEAPONS.length,'all fourteen weapons have different geometry, including within a family');
