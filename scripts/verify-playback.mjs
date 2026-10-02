@@ -1,5 +1,5 @@
 import {mergeRoomSnapshot} from '../public/snapshots.mjs';
-import {FrameMeter} from '../public/performance.mjs';
+import {FrameMeter,AdaptiveResolution,renderProfile} from '../public/performance.mjs';
 import assert from 'node:assert/strict';
 import {MotionPredictor} from '../public/motion.mjs';
 import {setupClassroom} from '../public/classroom.mjs';
@@ -28,3 +28,27 @@ const delta=mergeRoomSnapshot(state,{code:'ABCDEF',snapshotRevision:9,match:{id:
 const restarted=mergeRoomSnapshot(state,{code:'ABCDEF',snapshotRevision:10,match:{id:'other',loot:[{id:2}],entities:[]}});assert.deepEqual(restarted.match.loot,[{id:2}]);assert.equal(mergeRoomSnapshot(state,{code:'ZZZZZZ',snapshotRevision:0,match:null}).code,'ZZZZZZ');
 const meter=new FrameMeter();meter.record(100,1,10,100);meter.record(600,1,10,100);assert.equal(meter.read().fps,2,'half-second freezes count toward adaptive quality');meter.reset();assert.equal(meter.read().samples,0);
 console.log('Snapshots passed: cached loot, full refresh, match changes, out-of-order protection, private session preservation and long-frame measurement');
+
+// High-density phone canvas must retain real scene pixels instead of enlarging
+// a half-resolution image, without allocating unbounded 4K/high-DPR buffers.
+for(const [width,height] of [[390,844],[844,390],[960,440],[1280,800]]){
+ const profile=renderProfile({width,height,dpr:3,touch:true});
+ assert.ok(profile.pixelRatio>=1.25,'auto preserves at least 1.25 scene pixels per CSS pixel on common mobile/tablet viewports');
+ assert.equal(profile.shadows,false);assert.equal(profile.detail,'low');
+ const minimum=renderProfile({width,height,dpr:3,touch:true,scale:.55});assert.ok(minimum.pixelRatio>=1,'old blurry scale is clamped');
+ const sharp=renderProfile({quality:'sharp',width,height,dpr:3,touch:true});assert.ok(sharp.pixelRatio>profile.pixelRatio,'sharp mode increases phone clarity');assert.equal(sharp.shadows,false,'crisper mobile rendering does not enable shadow passes');
+}
+for(const quality of ['auto','sharp','smooth'])for(const dpr of [1,2,4]){
+ const result=renderProfile({quality,width:3840,height:2160,dpr});
+ assert.ok(3840*2160*result.pixelRatio**2<=({auto:1800000,sharp:3200000,smooth:900000}[quality])+1,'large screens stay within the render budget');
+}
+assert.equal(renderProfile({width:800,height:400,dpr:1}).pixelRatio,1,'ordinary density screens are not needlessly supersampled');
+const graphics=new AdaptiveResolution(),slow={samples:180,fps:30,frameP95Ms:38},fast={samples:180,fps:60,frameP95Ms:18};
+assert.equal(graphics.update({...slow,samples:10}),false,'warmup cannot lower resolution');
+assert.equal(graphics.update(slow),false,'one slow interval cannot lower resolution');
+assert.equal(graphics.update(fast),false,'an isolated long frame is not cumulative');assert.equal(graphics.scale,1.5);
+for(let n=0;n<24;n++)graphics.update(slow);assert.equal(graphics.scale,1,'sustained slow rendering never drops phones to half resolution');
+for(let n=0;n<3;n++)assert.equal(graphics.update(fast),false,'recovery waits for sustained headroom');assert.equal(graphics.update(fast),true);assert.equal(graphics.scale,1.125);
+for(let n=0;n<40;n++)graphics.update(fast);assert.equal(graphics.scale,1.5,'resolution can recover after the workload falls');
+graphics.update(slow);graphics.reset();assert.equal(graphics.scale,1.5);assert.equal(graphics.update(slow),false,'a new match starts with a fresh measurement window');
+console.log('Clarity passed: high-density phone/tablet buffers, bounded desktop allocation, native minimum, stable adaptation, warmup and recovery');
