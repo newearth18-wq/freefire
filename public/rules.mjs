@@ -12,7 +12,9 @@ export const WEAPONS=[
  gun('sks','SKS','MARKSMAN RIFLE',16,.34,52,145,2.3,.004,1,{auto:false,fixedScope:4,recoil:.035,falloff:.85,description:'ยิงทีละนัด พร้อมกล้อง 4× ระยะไกล'}),
  gun('awm','AWM','SNIPER RIFLE',5,1.25,90,185,3.2,.0015,1,{auto:false,fixedScope:8,recoil:.065,falloff:.95,description:'สไนเปอร์กล้อง 8× ดาเมจสูง ต้องเว้นจังหวะขึ้นลำ'}),
  gun('deagle','DESERT EAGLE','PISTOL',7,.38,44,65,1.55,.015,1,{auto:false,scopes:[0,1],recoil:.03,description:'ปืนพกยิงทีละนัด พลังสูง'}),
- gun('m60','M60','MACHINE GUN',60,.12,27,110,3.3,.022,1,{recoil:.018,bloom:.18,description:'แม็กใหญ่ ยิงกดดันได้นาน เติมกระสุนช้า'})
+ gun('m60','M60','MACHINE GUN',60,.12,27,110,3.3,.022,1,{recoil:.018,bloom:.18,description:'แม็กใหญ่ ยิงกดดันได้นาน เติมกระสุนช้า'}),
+ gun('groza','GROZA','ASSAULT RIFLE',30,.11,28,98,2.0,.015,1,{recoil:.017,description:'ไรเฟิลทรงบูลพัป สีม่วงฟ้า ยิงต่อเนื่องระยะกลาง'}),
+ gun('mag7','MAG-7','SHOTGUN',5,.40,10,28,2.1,.080,7,{scopes:[0],recoil:.030,falloff:.25,description:'ลูกซองทรงสั้น สีชมพูม่วง เหมาะระยะประชิด'})
 ];
 export const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 // Longer exploration phase. Ring timing scales with the teacher's match duration.

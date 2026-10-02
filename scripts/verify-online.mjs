@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {api} from '../server/worker.mjs';
+import {DEFAULT_APPEARANCE} from '../public/appearance.mjs';
 import {localDatabase} from './local-db.mjs';
 const DB=await localDatabase();
 async function call(op,body,origin='https://test.example'){const response=await api(new Request('https://test.example/api/rooms/'+op,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)}),{DB});return{status:response.status,body:await response.json()}}
@@ -10,7 +11,7 @@ try{
  const host=(await call('create',{name:'Host',mode:'squad',appearance:look})).body;assert.match(host.code,/^[A-Z2-9]{6}$/);assert.ok(host.token);assert.equal(host.capacity,50);assert.equal(host.teamSize,5);
  const guest=(await call('join',{code:host.code,name:'Friend'})).body,h=auth(host),g=auth(guest);assert.equal(guest.isHost,false);
  assert.equal((await call('start',g)).status,403);assert.equal((await call('poll',{code:host.code,token:'wrong'})).status,401);assert.equal((await call('poll',h,'https://other.example')).status,403);
- const dressed=await call('appearance',{...g,appearance:{character:'ghost',upperColor:999,token:'injected'}});assert.equal(dressed.status,200);const guestLook=dressed.body.players.find(p=>p.id===guest.id).appearance;assert.equal(guestLook.character,'ghost');assert.equal(guestLook.upperColor,0);assert.equal(Object.hasOwn(guestLook,'token'),false);
+ const dressed=await call('appearance',{...g,appearance:{character:'ghost',upperColor:999,token:'injected'}});assert.equal(dressed.status,200);const guestLook=dressed.body.players.find(p=>p.id===guest.id).appearance;assert.equal(guestLook.character,'ghost');assert.equal(guestLook.upperColor,DEFAULT_APPEARANCE.upperColor);assert.equal(Object.hasOwn(guestLook,'token'),false);
  for(let i=0;i<3;i++)assert.equal((await call('join',{code:host.code,name:'Ally '+i,team:0})).status,200);
  assert.equal((await call('join',{code:host.code,name:'Overflow',team:0})).status,409,'a squad has exactly five seats');
  assert.equal((await call('team',{...g,team:9})).body.selfTeam,9);assert.equal((await call('team',{...g,team:10})).status,400);
@@ -50,11 +51,12 @@ try{
  }
  const armoryOwner=(await call('create',{name:'Armory',mode:'solo'})).body;await call('start',auth(armoryOwner));
  await mutate(armoryOwner.code,r=>{r.match.drop=0;r.lastTick=Date.now()-200;const e=r.match.entities.find(e=>e.id===armoryOwner.id);e.x=e.z=e.y=0;r.match.loot=[{id:999,x:0,z:0,y:0,type:'weapon',weapon:9}]});
- const equipped=(await call('poll',{...auth(armoryOwner),controls:{aim:true,scoped:true,actions:[{seq:1,type:'pickup'}]}})).body.match.entities.find(e=>e.id===armoryOwner.id);assert.equal(equipped.weapon,9);assert.equal(equipped.weapons.length,12);assert.equal(equipped.scoped,true);
+ const equipped=(await call('poll',{...auth(armoryOwner),controls:{aim:true,scoped:true,actions:[{seq:1,type:'pickup'}]}})).body.match.entities.find(e=>e.id===armoryOwner.id);assert.equal(equipped.weapon,9);assert.equal(equipped.weapons.length,14);assert.equal(equipped.scoped,true);
  await mutate(armoryOwner.code,r=>{r.lastTick=Date.now()-200;r.match.loot=[{id:1000,x:0,z:0,y:0,type:'weapon',weapon:8}]});
  await call('poll',{...auth(armoryOwner),controls:{actions:[{seq:2,type:'pickup'}]}});
  await mutate(armoryOwner.code,r=>r.lastTick=Date.now()-200);
  const swapped=(await call('poll',{...auth(armoryOwner),controls:{aim:true,scoped:true,actions:[{seq:3,type:'swap',index:0},{seq:4,type:'swap',index:8},{seq:5,type:'scope'}]}})).body.match.entities.find(e=>e.id===armoryOwner.id);assert.equal(swapped.weapon,8,'online validation accepts catalog indices above the original three');assert.equal(swapped.scope,4);assert.equal(swapped.weapons.filter(w=>w.owned).length,3);
+ for(const [index,seq] of [[12,6],[13,7]]){await mutate(armoryOwner.code,r=>{r.lastTick=Date.now()-200;const e=r.match.entities.find(e=>e.id===armoryOwner.id);r.match.loot=[{id:1000+seq,x:e.x,y:e.y,z:e.z,type:'weapon',weapon:index}]});const picked=(await call('poll',{...auth(armoryOwner),controls:{actions:[{seq,type:'pickup'}]}})).body.match.entities.find(e=>e.id===armoryOwner.id);assert.equal(picked.weapon,index,'online players can equip the new video-reference weapons');assert.equal(picked.weapons.filter(w=>w.owned).length,3)}
  assert.equal((await call('create',null)).status,400);assert.equal((await call('join',{code:'XXXXXX'})).status,404);
  console.log('Online tests passed: 50-player solo, ten squads of five, bot fill, matchmaking, team movement, authorization, appearance, action replay isolation and token privacy');
 }finally{DB.close()}

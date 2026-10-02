@@ -12,15 +12,15 @@ export class GameAudio{
   const oscillator=(frequency,finish,duration,volume,type='sine',delay=0)=>{const source=c.createOscillator(),gain=c.createGain(),start=now+delay;source.type=type;source.frequency.setValueAtTime(frequency,start);source.frequency.exponentialRampToValueAtTime(Math.max(20,finish),start+duration);gain.gain.setValueAtTime(.0001,start);gain.gain.linearRampToValueAtTime(volume,start+.006);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);source.connect(gain);gain.connect(bus);source.start(start);source.stop(start+duration);nodes.push(source,gain);end=Math.max(end,start+duration);};
   const noise=(frequency,duration,volume,type='lowpass',delay=0)=>{const source=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain(),start=now+delay;source.buffer=this.noise;filter.type=type;filter.frequency.value=frequency;gain.gain.setValueAtTime(volume,start);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);source.connect(filter);filter.connect(gain);gain.connect(bus);source.start(start,Math.random());source.stop(start+duration);nodes.push(source,filter,gain);end=Math.max(end,start+duration);};
   switch(name){
-   case'gun':{const spec=WEAPONS[weapon],shotgun=spec.kind==='SHOTGUN',sniper=spec.kind==='SNIPER RIFLE',smg=spec.kind==='SUBMACHINE GUN';noise(sniper?950:shotgun?1300:smg?3300:2300,sniper?.3:shotgun?.22:.11,sniper?.42:shotgun?.38:.23);oscillator(sniper?80:shotgun?115:smg?210:175,35,sniper?.30:shotgun?.20:.10,.19);noise(7500,.055,.06,'highpass',.055);if(sniper)noise(5000,.07,.045,'highpass',.45);break;}
+   case'gun':{const spec=WEAPONS[weapon]??WEAPONS[0],shotgun=spec.kind==='SHOTGUN',sniper=spec.kind==='SNIPER RIFLE',smg=spec.kind==='SUBMACHINE GUN',note=sniper?523:shotgun?659:smg?988:784;oscillator(note,note*1.35,sniper?.16:.085,.055,'sine');oscillator(note*1.5,note*2,sniper?.18:.09,.022,'triangle',.018);break;}
    case'scope':noise(5200,.035,.035,'highpass');break;
    case'dry':oscillator(380,180,.045,.035,'square');break;
    case'ui':oscillator(900,700,.055,.025,'triangle');break;
    case'queue':oscillator(440,660,.14,.035,'sine');oscillator(660,880,.14,.035,'sine',.13);break;
    case'countdown':oscillator(740,740,.12,.06);break;
-   case'hit':oscillator(700,320,.055,.05,'triangle');noise(4500,.04,.03,'highpass');break;
+   case'hit':oscillator(1046,1318,.08,.035,'sine');break;
    case'headshot':oscillator(1200,1500,.08,.06);oscillator(1500,1900,.08,.04,'sine',.07);break;
-   case'damage':noise(550,.14,.13);oscillator(130,45,.13,.09);break;
+   case'damage':oscillator(440,330,.14,.035,'sine');break;
    case'footstep':noise(500,.065,.075);oscillator(75,45,.055,.025);break;
    case'jump':noise(1200,.12,.04);break;
    case'land':noise(600,.18,.13);oscillator(90,35,.18,.06);break;
