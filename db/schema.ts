@@ -27,3 +27,13 @@ export const teacherQuestionSets=sqliteTable('teacher_question_sets',{
  title:text('title').notNull(),mapId:text('map_id').notNull(),lesson:text('lesson').notNull(),questionCount:integer('question_count').notNull(),
  revision:integer('revision').notNull().default(0),created:integer('created').notNull(),updated:integer('updated').notNull(),
 },t=>[index('teacher_sets_owner_updated').on(t.ownerId,t.updated)]);
+export const teacherCredentials=sqliteTable('teacher_credentials',{
+ email:text('email').primaryKey(),ownerId:text('owner_id').notNull().references(()=>teacherAccounts.id),
+ name:text('name').notNull(),passwordHash:text('password_hash').notNull(),recoveryHash:text('recovery_hash').notNull(),created:integer('created').notNull(),
+},t=>[uniqueIndex('teacher_credentials_owner').on(t.ownerId)]);
+export const teacherSessions=sqliteTable('teacher_sessions',{
+ tokenHash:text('token_hash').primaryKey(),ownerId:text('owner_id').notNull().references(()=>teacherAccounts.id),expires:integer('expires').notNull(),
+},t=>[index('teacher_sessions_owner').on(t.ownerId),index('teacher_sessions_expires').on(t.expires)]);
+export const teacherAuthLimits=sqliteTable('teacher_auth_limits',{
+ key:text('key').primaryKey(),count:integer('count').notNull(),expires:integer('expires').notNull(),
+},t=>[index('teacher_auth_limits_expires').on(t.expires)]);

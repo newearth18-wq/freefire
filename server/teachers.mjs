@@ -1,17 +1,12 @@
 import {normalizeLesson} from '../public/learning.mjs';
 import {validMap} from '../public/maps.mjs';
+import {platformTeacherIdentity,resolveTeacherIdentity,teacherAuthApi} from './teacher-auth.mjs';
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status})};
 export const teacherSignIn='/signin-with-chatgpt?return_to=%2F%3Fteacher%3D1';
 // These headers are supplied by Sites dispatch. An app-supplied ID, room token,
 // localStorage value or email field never establishes a teacher identity.
-export function teacherIdentity(request){
- const id=request.headers.get('oai-authenticated-user-id'),email=request.headers.get('oai-authenticated-user-email');
- if(!id||!email||id.length>256||email.length>320)return null;
- let name=request.headers.get('oai-authenticated-user-full-name');
- if(name&&request.headers.get('oai-authenticated-user-full-name-encoding')==='percent-encoded-utf-8'){try{name=decodeURIComponent(name)}catch{name=null}}
- return{id,name:(name||email).slice(0,80),email};
-}
+export const teacherIdentity=platformTeacherIdentity;
 export function requireTeacher(identity){if(!identity)fail('เข้าสู่ระบบครูก่อนจัดการข้อสอบ',401);return identity}
 export function canTeachRoom(room,member,identity){return !room.queue&&!!identity&&room.members[0]?.id===member.id&&(!room.teacherOwnerId||room.teacherOwnerId===identity.id)}
 export async function ownedQuestionSet(db,identity,id){
@@ -22,9 +17,11 @@ export async function ownedQuestionSet(db,identity,id){
 }
 export async function teacherApi(request,env){
  try{
-  const url=new URL(request.url),op=url.pathname.slice('/api/teachers/'.length),identity=teacherIdentity(request);
+  const url=new URL(request.url),op=url.pathname.slice('/api/teachers/'.length);
+  if(['register','login','logout','recover','link'].includes(op))return teacherAuthApi(request,env,op);
+  const identity=await resolveTeacherIdentity(request,env.DB);
   const origin=request.headers.get('Origin');if(origin&&origin!==url.origin||request.headers.get('Sec-Fetch-Site')==='cross-site')fail('ไม่อนุญาตคำขอจากเว็บไซต์อื่น',403);
-  if(op==='me'&&request.method==='GET')return json({user:identity?{id:identity.id,name:identity.name,email:identity.email}:null,signInPath:teacherSignIn,signOutPath:'/signout-with-chatgpt?return_to=%2F'});
+  if(op==='me'&&request.method==='GET')return json({user:identity?{id:identity.id,name:identity.name,email:identity.email,provider:identity.provider}:null,signInPath:teacherSignIn});
   requireTeacher(identity);if(!env.DB)fail('คลังข้อสอบยังไม่พร้อม กรุณาลองอีกครั้ง',503);const db=env.DB;
   if(op==='sets'&&request.method==='GET'){
    const rows=await db.prepare('SELECT id,title,map_id,revision,created,updated,question_count FROM teacher_question_sets WHERE owner_id=? ORDER BY updated DESC,id LIMIT 100').bind(identity.id).all();

@@ -29,6 +29,13 @@
       "when": 1790951854743,
       "tag": "0003_teacher_library",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790954361283,
+      "tag": "0004_teacher_email_auth",
+      "breakpoints": true
     }
   ]
 }
