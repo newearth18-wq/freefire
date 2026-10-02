@@ -14,4 +14,5 @@ p.reset(actor);const walls=[{x:1,z:0,w:.1,d:2,y:0,h:3}];
 for(let i=0;i<60;i++)p.step(actor,input,1/60,walls);
 assert.ok(p.position.x<.46,'predicted movement respects collisions');
 p.step({...actor,x:4},input,1/60,[],false);assert.equal(p.position.x,4,'disabled prediction follows server');
+p.reset(actor);p.position.x=6;p.receive(actor,input,.7,[]);assert.equal(p.position.x,6,'high-latency reconciliation does not abruptly teleport');const slowBefore=p.position.x;p.step(actor,{},1/60,[]);assert.ok(Math.abs(p.position.x-slowBefore)<=.051,'correction is bounded to 3 metres per second');p.reset(actor);for(let i=0;i<120;i++)p.step(actor,input,1/60,[]);assert.ok(p.position.x>10,'presentation continues across a 2-second network gap');assert.deepEqual(actor,original);
 console.log('Motion: continuous movement, reconciliation, collision and authoritative state passed');

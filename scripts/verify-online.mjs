@@ -1,3 +1,4 @@
+import {lootStamp,mergeRoomSnapshot} from '../public/snapshots.mjs';
 import assert from 'node:assert/strict';
 import {api} from '../server/worker.mjs';
 import {DEFAULT_APPEARANCE} from '../public/appearance.mjs';
@@ -32,12 +33,12 @@ try{
  const fresh=(await call('poll',g)).body.match;assert.equal(fresh.entities.find(e=>e.id===guest.id).weapon,0);
  const queue=(await call('matchmake',{mode:'solo',name:'Queue host'})).body,other=(await call('matchmake',{mode:'solo',name:'Queue friend'})).body;
  assert.equal(queue.code,other.code);assert.equal(queue.queue,true);assert.equal(queue.teamSize,1);assert.equal((await call('team',{...auth(queue),team:1})).status,400);
- await mutate(queue.code,r=>r.startsAt=Date.now()-1);const fill=(await call('poll',auth(queue))).body.match;assert.equal(fill.entities.length,50);assert.equal(fill.entities.filter(e=>e.human).length,2);assert.equal(new Set(fill.entities.map(e=>e.team)).size,50);
+ await mutate(queue.code,r=>r.startsAt=Date.now()-60000);const queued=(await call('poll',auth(queue))).body;assert.equal(queued.match,null,'a public room does not start after waiting');assert.equal(queued.startsAt,null);assert.equal((await call('start',auth(other))).status,403);const fill=(await call('start',auth(queue))).body.match;assert.equal(fill.entities.length,50);assert.equal(fill.entities.filter(e=>e.human).length,2);assert.equal(new Set(fill.entities.map(e=>e.team)).size,50);
  assert.equal(fill.educational,true,'public matchmaking includes sample questions');const disabled=(await call('create',{mode:'solo',lesson:{enabled:false}})).body;assert.equal(disabled.lesson.enabled,false);assert.equal((await call('start',auth(disabled))).body.match.educational,false,'teacher can explicitly disable the lesson');
  const next=(await call('matchmake',{mode:'solo'})).body;assert.notEqual(next.code,queue.code);
  const publicClients=await Promise.all(Array.from({length:50},(_,i)=>call('matchmake',{mode:'squad',name:'Public '+i})));
  assert.ok(publicClients.every(r=>[200,201].includes(r.status)));assert.equal(new Set(publicClients.map(r=>r.body.code)).size,1,'concurrent public matchmaking uses one waiting room');
- assert.equal((await call('poll',auth(publicClients[0].body))).body.match.entities.filter(e=>e.human).length,50);
+ const publicOwner=publicClients.find(r=>r.body.isHost).body;assert.equal((await call('poll',auth(publicOwner))).body.match,null,'a full public room still waits for its owner');assert.equal((await call('start',auth(publicOwner))).body.match.entities.filter(e=>e.human).length,50);
  for(const mode of ['solo','squad']){
   const owner=(await call('create',{mode,name:'Capacity host'})).body,start=performance.now();
   const joins=await Promise.all(Array.from({length:49},(_,i)=>call('join',{code:owner.code,name:'Player '+i})));
@@ -49,7 +50,7 @@ try{
   await mutate(owner.code,r=>{r.match.drop=0;r.lastTick=Date.now()-200});
   const polls=await Promise.all(clients.map(p=>call('poll',{...auth(p),controls:{actions:[{seq:1,type:'crouch'}]}})));assert.ok(polls.every(r=>r.status===200));
   await mutate(owner.code,r=>r.lastTick=Date.now()-200);const synchronized=(await call('poll',{...auth(owner),controls:{actions:[{seq:1,type:'crouch'}]}})).body;
-  assert.equal(synchronized.match.entities.filter(e=>e.crouch).length,50);const bytes=Buffer.byteLength(JSON.stringify(synchronized));assert.ok(bytes<120000);console.log(mode+': 50-player snapshot '+bytes+' bytes; one full inventory');
+  assert.equal(synchronized.match.entities.filter(e=>e.crouch).length,50);const bytes=Buffer.byteLength(JSON.stringify(synchronized));assert.ok(bytes<120000);const delta=(await call('poll',{...auth(owner),knownLoot:lootStamp(synchronized.match)})).body;assert.equal(Object.hasOwn(delta.match,'loot'),false,'unchanged loot is not repeatedly transmitted');assert.ok(Buffer.byteLength(JSON.stringify(delta))<bytes*.8,'steady-state packets omit at least 20% of the full snapshot');const merged=mergeRoomSnapshot(synchronized,delta);assert.deepEqual(merged.match.loot,synchronized.match.loot);assert.equal(merged.snapshotRevision,delta.snapshotRevision);const full=(await call('poll',{...auth(owner),knownLoot:'wrong-match'})).body;assert.ok(full.match.loot.length,'a missing or mismatched cache requests full loot');await mutate(owner.code,r=>r.match.loot.pop());const changed=(await call('poll',{...auth(owner),knownLoot:lootStamp(merged.match)})).body;assert.ok(Object.hasOwn(changed.match,'loot'),'a pickup or spawn invalidates the cached list');assert.equal(changed.match.loot.length,merged.match.loot.length-1);console.log(mode+': full snapshot '+bytes+' bytes, cached snapshot '+Buffer.byteLength(JSON.stringify(delta))+' bytes');
   console.log(mode+': 50 concurrent joins and control packets passed in '+Math.round(performance.now()-start)+' ms locally');
  }
  const armoryOwner=(await call('create',{name:'Armory',mode:'solo'})).body;await call('start',auth(armoryOwner));
