@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import * as T from '../public/vendor/three.module.js';
 import {GLTFLoader} from '../public/vendor/addons/loaders/GLTFLoader.js';
-import {prepareCharacter,makeAvatar,animateAvatar,disposeAvatar} from '../public/visuals.mjs';
+import {prepareCharacter,makeAvatar,animateAvatar,setAvatarWeapon,disposeAvatar} from '../public/visuals.mjs';
+import {WEAPONS} from '../public/rules.mjs';
 const bytes=await readFile(new URL('../public/models/operative.glb',import.meta.url));
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 prepareCharacter(gltf);
 const avatars=[makeAvatar(0),makeAvatar(1)],point=new T.Vector3();
+for(let i=0;i<WEAPONS.length;i++){setAvatarWeapon(avatars[0],i);setAvatarWeapon(avatars[1],i);const gun=avatars[0].userData.gun;assert.ok(gun.children.length>0&&gun.children.length<=5,'weapon parts remain batched');assert.equal(gun.children[0].geometry,avatars[1].userData.gun.children[0].geometry,'avatars share cached weapon geometry');assert.ok(new T.Box3().setFromObject(gun).getSize(new T.Vector3()).length()>0)}
+avatars.forEach(a=>setAvatarWeapon(a,0));
 const hidden=avatars[0],bone=hidden.userData.model.getObjectByName('WristR'),update=bone.updateMatrixWorld;
 let visits=0;bone.updateMatrixWorld=function(force){visits++;return update.call(this,force)};
 hidden.visible=false;hidden.updateMatrixWorld(true);assert.equal(visits,0,'hidden rigs skip skeleton traversal');

@@ -1,7 +1,18 @@
+// Names and weapon roles reference Garena's catalog. Combat values are tuned for this web arena.
+const gun=(id,name,kind,mag,rate,damage,range,reload,spread,pellets,extra={})=>({id,name,kind,mag,rate,damage,range,reload,spread,pellets,auto:true,recoil:.012,recovery:5,bloom:.13,falloff:.65,penetration:0,scopes:[0,1,2,4],...extra});
 export const WEAPONS=[
-{id:'ar',name:'AR-7',kind:'ASSAULT RIFLE',mag:30,rate:.15,damage:26,range:90,reload:1.65,spread:.012,pellets:1},
-{id:'smg',name:'VECTOR',kind:'SUBMACHINE GUN',mag:35,rate:.08,damage:17,range:48,reload:1.4,spread:.025,pellets:1},
-{id:'sg',name:'M-8',kind:'SHOTGUN',mag:6,rate:.7,damage:13,range:28,reload:2.1,spread:.07,pellets:7}
+ gun('m4','M4A1','ASSAULT RIFLE',30,.14,26,100,1.8,.012,1,{description:'ไรเฟิลสมดุล คุมง่าย เหมาะระยะกลาง'}),
+ gun('mp40','MP40','SUBMACHINE GUN',20,.075,18,45,1.5,.026,1,{scopes:[0,1],falloff:.4,recoil:.008,description:'ยิงรัวระยะประชิด แม็กเล็ก'}),
+ gun('m1887','M1887','SHOTGUN',2,.62,14,27,1.9,.075,8,{auto:false,scopes:[0],recoil:.045,falloff:.2,description:'ลูกซองสองนัด แรงมากเมื่อเข้าใกล้'}),
+ gun('ak','AK47','ASSAULT RIFLE',30,.17,34,105,2.2,.017,1,{recoil:.026,description:'พลังสูง แลกกับแรงถีบที่มากขึ้น'}),
+ gun('scar','SCAR','ASSAULT RIFLE',30,.13,25,95,1.9,.011,1,{recoil:.010,description:'ยิงต่อเนื่อง คุมง่ายและแม่นระยะกลาง'}),
+ gun('m1014','M1014','SHOTGUN',6,.48,11,30,2.4,.085,7,{scopes:[0],recoil:.035,falloff:.25,description:'ลูกซองกึ่งอัตโนมัติ ยิงต่อเนื่องได้'}),
+ gun('ump','UMP','SUBMACHINE GUN',30,.095,22,58,1.7,.022,1,{penetration:.35,falloff:.5,description:'SMG เจาะเกราะ เหมาะการต่อสู้เคลื่อนที่'}),
+ gun('vector','VECTOR','SUBMACHINE GUN',25,.065,16,42,1.65,.028,1,{scopes:[0,1],recoil:.009,falloff:.4,description:'ยิงเร็วมาก ใช้กระสุนไวในระยะใกล้'}),
+ gun('sks','SKS','MARKSMAN RIFLE',16,.34,52,145,2.3,.004,1,{auto:false,fixedScope:4,recoil:.035,falloff:.85,description:'ยิงทีละนัด พร้อมกล้อง 4× ระยะไกล'}),
+ gun('awm','AWM','SNIPER RIFLE',5,1.25,90,185,3.2,.0015,1,{auto:false,fixedScope:8,recoil:.065,falloff:.95,description:'สไนเปอร์กล้อง 8× ดาเมจสูง ต้องเว้นจังหวะขึ้นลำ'}),
+ gun('deagle','DESERT EAGLE','PISTOL',7,.38,44,65,1.55,.015,1,{auto:false,scopes:[0,1],recoil:.03,description:'ปืนพกยิงทีละนัด พลังสูง'}),
+ gun('m60','M60','MACHINE GUN',60,.12,27,110,3.3,.022,1,{recoil:.018,bloom:.18,description:'แม็กใหญ่ ยิงกดดันได้นาน เติมกระสุนช้า'})
 ];
 export const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const phases=[{wait:40,end:80,r:70},{wait:110,end:145,r:38},{wait:175,end:205,r:12},{wait:230,end:260,r:0}];

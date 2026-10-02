@@ -48,6 +48,13 @@ try{
   assert.equal(synchronized.match.entities.filter(e=>e.crouch).length,50);assert.ok(JSON.stringify(synchronized).length<120000);
   console.log(mode+': 50 concurrent joins and control packets passed in '+Math.round(performance.now()-start)+' ms locally');
  }
+ const armoryOwner=(await call('create',{name:'Armory',mode:'solo'})).body;await call('start',auth(armoryOwner));
+ await mutate(armoryOwner.code,r=>{r.match.drop=0;r.lastTick=Date.now()-200;const e=r.match.entities.find(e=>e.id===armoryOwner.id);e.x=e.z=e.y=0;r.match.loot=[{id:999,x:0,z:0,y:0,type:'weapon',weapon:9}]});
+ const equipped=(await call('poll',{...auth(armoryOwner),controls:{aim:true,scoped:true,actions:[{seq:1,type:'pickup'}]}})).body.match.entities.find(e=>e.id===armoryOwner.id);assert.equal(equipped.weapon,9);assert.equal(equipped.weapons.length,12);assert.equal(equipped.scoped,true);
+ await mutate(armoryOwner.code,r=>{r.lastTick=Date.now()-200;r.match.loot=[{id:1000,x:0,z:0,y:0,type:'weapon',weapon:8}]});
+ await call('poll',{...auth(armoryOwner),controls:{actions:[{seq:2,type:'pickup'}]}});
+ await mutate(armoryOwner.code,r=>r.lastTick=Date.now()-200);
+ const swapped=(await call('poll',{...auth(armoryOwner),controls:{aim:true,scoped:true,actions:[{seq:3,type:'swap',index:0},{seq:4,type:'swap',index:8},{seq:5,type:'scope'}]}})).body.match.entities.find(e=>e.id===armoryOwner.id);assert.equal(swapped.weapon,8,'online validation accepts catalog indices above the original three');assert.equal(swapped.scope,4);assert.equal(swapped.weapons.filter(w=>w.owned).length,3);
  assert.equal((await call('create',null)).status,400);assert.equal((await call('join',{code:'XXXXXX'})).status,404);
  console.log('Online tests passed: 50-player solo, ten squads of five, bot fill, matchmaking, team movement, authorization, appearance, action replay isolation and token privacy');
 }finally{DB.close()}

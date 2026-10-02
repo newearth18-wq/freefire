@@ -1,3 +1,4 @@
+import {WEAPONS} from './rules.mjs';
 // Procedural effects are generated locally; no audio downloads or microphone access.
 export class GameAudio{
  constructor(){this.context=null;this.master=null;this.muted=false;this.volume=.65;this.active=0;this.played={};this.step=0;this.previous={};try{const saved=JSON.parse(localStorage.getItem('lastIsland.audio'));this.muted=saved?.muted===true;if(Number.isFinite(saved?.volume))this.volume=Math.max(0,Math.min(1,saved.volume))}catch{}}
@@ -11,7 +12,9 @@ export class GameAudio{
   const oscillator=(frequency,finish,duration,volume,type='sine',delay=0)=>{const source=c.createOscillator(),gain=c.createGain(),start=now+delay;source.type=type;source.frequency.setValueAtTime(frequency,start);source.frequency.exponentialRampToValueAtTime(Math.max(20,finish),start+duration);gain.gain.setValueAtTime(.0001,start);gain.gain.linearRampToValueAtTime(volume,start+.006);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);source.connect(gain);gain.connect(bus);source.start(start);source.stop(start+duration);nodes.push(source,gain);end=Math.max(end,start+duration);};
   const noise=(frequency,duration,volume,type='lowpass',delay=0)=>{const source=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain(),start=now+delay;source.buffer=this.noise;filter.type=type;filter.frequency.value=frequency;gain.gain.setValueAtTime(volume,start);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);source.connect(filter);filter.connect(gain);gain.connect(bus);source.start(start,Math.random());source.stop(start+duration);nodes.push(source,filter,gain);end=Math.max(end,start+duration);};
   switch(name){
-   case'gun':noise(weapon===2?1300:weapon===1?3100:2200,weapon===2?.22:.12,weapon===2?.38:.23);oscillator(weapon===2?115:175,38,weapon===2?.20:.10,.19);noise(7500,.055,.06,'highpass',.055);break;
+   case'gun':{const spec=WEAPONS[weapon],shotgun=spec.kind==='SHOTGUN',sniper=spec.kind==='SNIPER RIFLE',smg=spec.kind==='SUBMACHINE GUN';noise(sniper?950:shotgun?1300:smg?3300:2300,sniper?.3:shotgun?.22:.11,sniper?.42:shotgun?.38:.23);oscillator(sniper?80:shotgun?115:smg?210:175,35,sniper?.30:shotgun?.20:.10,.19);noise(7500,.055,.06,'highpass',.055);if(sniper)noise(5000,.07,.045,'highpass',.45);break;}
+   case'scope':noise(5200,.035,.035,'highpass');break;
+   case'dry':oscillator(380,180,.045,.035,'square');break;
    case'ui':oscillator(900,700,.055,.025,'triangle');break;
    case'queue':oscillator(440,660,.14,.035,'sine');oscillator(660,880,.14,.035,'sine',.13);break;
    case'countdown':oscillator(740,740,.12,.06);break;
