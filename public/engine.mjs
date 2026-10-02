@@ -1,6 +1,6 @@
 import {ownedWeapons,scopeOptions,equippedScope,shotSpread,rangeDamage,aimingPoint} from './combat.mjs';
 import {findRoute} from './navigation.mjs';
-import {nearbyWeaponLoot} from './loot-pickup.mjs';
+import {nearbyWeaponLoot,nearbyWeaponItems} from './loot-pickup.mjs';
 import {STATIC_SOLIDS,ACTIVE_MAP,activateMap,groundHeight,moveSlide,canStand,rayBox,lineClear,seeded,cameraPosition} from './arena.mjs';
 import {WEAPONS,zoneAt,clamp} from './rules.mjs';
 import {normalizeAppearance,botAppearance} from './appearance.mjs';
@@ -27,7 +27,7 @@ function event(m,type,data){m.events.push({seq:++m.eventSeq,time:m.time,type,...
 export const living=e=>e.status!=='dead';
 const studying=(m,e)=>m.time<(e.studyUntil??0)&&(!e.studyDeadline||Date.now()<e.studyDeadline);
 export function members(m,team){return m.entities.filter(e=>e.team===team&&living(e))}
-export function setInput(m,id,input){const e=m.entities.find(e=>e.id===id);if(!e||!e.human)return;const n=v=>Number.isFinite(v)?v:0;e.input={mx:clamp(n(input.mx),-1,1),mz:clamp(n(input.mz),-1,1),yaw:n(input.yaw)% (Math.PI*2),pitch:clamp(n(input.pitch),-.75,.65),fire:input.fire===true,aim:input.aim===true,scoped:input.scoped===true,sprint:input.sprint===true,revive:input.revive===true};e.yaw=e.input.yaw;e.pitch=e.input.pitch;e.aim=e.input.aim;e.scoped=e.aim&&e.input.scoped&&equippedScope(e)>0;e.lastInput=m.time;if(Array.isArray(input.actions))for(const a of input.actions.slice(0,12)){if(!Number.isInteger(a.seq)||a.seq<=e.lastAction||typeof a.type!=='string')continue;e.lastAction=a.seq;act(m,e,a.type,a.index)}}
+export function setInput(m,id,input){const e=m.entities.find(e=>e.id===id);if(!e||!e.human)return;const n=v=>Number.isFinite(v)?v:0;e.input={mx:clamp(n(input.mx),-1,1),mz:clamp(n(input.mz),-1,1),yaw:n(input.yaw)% (Math.PI*2),pitch:clamp(n(input.pitch),-.75,.65),fire:input.fire===true,aim:input.aim===true,scoped:input.scoped===true,sprint:input.sprint===true,revive:input.revive===true,autoPickup:input.autoPickup===true};e.yaw=e.input.yaw;e.pitch=e.input.pitch;e.aim=e.input.aim;e.scoped=e.aim&&e.input.scoped&&equippedScope(e)>0;e.lastInput=m.time;if(Array.isArray(input.actions))for(const a of input.actions.slice(0,12)){if(!Number.isInteger(a.seq)||a.seq<=e.lastAction||typeof a.type!=='string')continue;e.lastAction=a.seq;act(m,e,a.type,a.index)}}
 export function act(m,e,type,index){activateMap(m.mapId);if(m.state!=='playing'||e.status!=='alive'||m.drop>0)return;const w=e.weapons[e.weapon],spec=WEAPONS[e.weapon];
  if(type==='fire'){shoot(m,e);e.triggerHeld=true}
  if(type==='pickup'&&!pickupWeapon(m,e,index))event(m,'pickup-miss',{id:e.id});
@@ -69,9 +69,10 @@ function collect(m,e){if(e.status!=='alive')return;for(let i=m.loot.length-1;i>=
  if(l.type==='med')e.medkits++;if(l.type==='armor')e.armor=Math.min(100,e.armor+50);if(l.type==='wall')e.wallCharges++;if(l.type==='ammo'&&!m.educational)for(const w of e.weapons)w.reserve=Math.min(360,w.reserve+40);if(l.type==='ammo'&&m.educational)continue;
  if(l.type==='scope'){e.scopes??=[0,1];if(e.scopes.includes(l.scope))continue;e.scopes.push(l.scope);e.scope=equippedScope(e)}
  event(m,'pickup',{id:e.id,item:l.type,scope:l.scope});m.loot.splice(i,1)}}
-export function pickupWeapon(m,e,requestedId){const item=nearbyWeaponLoot(m,e,colliders(m),requestedId);if(!item)return false;
- const w=e.weapons[item.weapon];if(w.owned){if(m.educational)return;w.reserve=Math.min(360,w.reserve+WEAPONS[item.weapon].mag)}else{if(ownedWeapons(e).length>=3){const dropped=e.weapon;e.weapons[dropped].owned=false;m.loot.push({id:3000+ ++m.eventSeq,x:e.x+2.5,z:e.z,y:groundHeight(e.x+2.5,e.z),type:'weapon',weapon:dropped})}w.owned=true;e.weapon=item.weapon;e.reload=e.recoil=e.bloom=0;e.shot=.18;e.scope=equippedScope(e)}
- m.loot.splice(m.loot.indexOf(item),1);event(m,'pickup',{id:e.id,item:'weapon',weapon:item.weapon});return true;
+export function pickupWeapon(m,e,requestedId,{auto=false}={}){const item=nearbyWeaponLoot(m,e,colliders(m),requestedId);if(!item)return false;
+ if(auto&&(e.weapons[item.weapon].owned||ownedWeapons(e).length>=3||Math.hypot(item.x-e.x,item.z-e.z)>1.8))return false;
+ const w=e.weapons[item.weapon];if(w.owned){if(m.educational)return;w.reserve=Math.min(360,w.reserve+WEAPONS[item.weapon].mag)}else{if(ownedWeapons(e).length>=3){const dropped=e.weapon;e.weapons[dropped].owned=false;m.loot.push({id:3000+ ++m.eventSeq,x:e.x+2.5,z:e.z,y:groundHeight(e.x+2.5,e.z),type:'weapon',weapon:dropped})}w.owned=true;if(!auto){e.weapon=item.weapon;e.reload=e.recoil=e.bloom=0;e.shot=.18;e.scope=equippedScope(e)}}
+ m.loot.splice(m.loot.indexOf(item),1);event(m,'pickup',{id:e.id,item:'weapon',weapon:item.weapon,auto});return true;
 }
 export function tick(m,dt){activateMap(m.mapId);if(m.state!=='playing')return;dt=clamp(dt,0,.05);if(m.drop>0){m.drop=Math.max(0,m.drop-dt);for(const e of m.entities){const input=e.input??{};if(e.human){e.yaw=input.yaw??e.yaw;const mx=input.mx??0,mz=input.mz??0;moveSlide(e,(mx*Math.cos(e.yaw)+mz*Math.sin(e.yaw))*7*dt,(-mx*Math.sin(e.yaw)+mz*Math.cos(e.yaw))*7*dt,STATIC_SOLIDS)}e.y=groundHeight(e.x,e.z)+m.drop/6*25;if(m.drop===0&&!canStand(e.x,e.z,STATIC_SOLIDS,.45,e.y)){const ox=e.x,oz=e.z;outer:for(let r=.7;r<8;r+=.7)for(let n=0;n<16;n++){const a=n/16*Math.PI*2,x=ox+Math.sin(a)*r,z=oz+Math.cos(a)*r;if(canStand(x,z,STATIC_SOLIDS,.45,groundHeight(x,z))){e.x=x;e.z=z;e.y=groundHeight(x,z);break outer}}}}return}
  m.time+=dt;m.zone=zoneAt(m.time,m.duration,m.mapRadius).radius;m.walls=m.walls.filter(w=>{w.life-=dt;return w.life>0&&w.hp>0});const solids=colliders(m),revived=new Set();m.navBudget=2;
@@ -80,7 +81,7 @@ export function tick(m,dt){activateMap(m.mapId);if(m.state!=='playing')return;dt
  let mx=input.mx??0,mz=input.mz??0,l=Math.hypot(mx,mz);if(l>1){mx/=l;mz/=l}const speed=e.status==='down'?.8:e.crouch?2.6:input.sprint?8.5:5.4,scale=e.heal>0?.4:e.aim?.7:1;const oldX=e.x,oldZ=e.z,moved=moveSlide(e,(mx*Math.cos(e.yaw)+mz*Math.sin(e.yaw))*speed*scale*dt,(-mx*Math.sin(e.yaw)+mz*Math.cos(e.yaw))*speed*scale*dt,solids);e.speed=moved/Math.max(.001,dt);e.vx=(e.x-oldX)/dt;e.vz=(e.z-oldZ)/dt;
  if(!e.human&&l>.1){if(moved<speed*scale*dt*.25)e.stuck+=dt;else e.stuck=Math.max(0,e.stuck-dt)}
  if(e.vy>0||e.jump>0){e.vy-=18*dt;e.jump=Math.max(0,e.jump+e.vy*dt);if(e.jump===0)e.vy=0}e.y=groundHeight(e.x,e.z)+e.jump;
- if(e.status==='down'){e.bleed-=dt;if(e.bleed<=0)eliminate(m,e,m.entities.find(a=>a.id===e.downedBy))}else{if(input.fire&&(WEAPONS[e.weapon].auto||!e.triggerHeld))shoot(m,e);e.triggerHeld=!!input.fire;collect(m,e);if(input.revive){const ally=members(m,e.team).find(a=>a.status==='down'&&Math.hypot(a.x-e.x,a.z-e.z)<2.7&&lineClear({x:e.x,y:e.y+1,z:e.z},{x:a.x,y:a.y+.4,z:a.z},solids));if(ally&&!revived.has(ally.id)){revived.add(ally.id);ally.revive+=dt;if(ally.revive>=3){ally.status='alive';ally.hp=45;ally.revive=0;ally.bleed=30;event(m,'revived',{id:ally.id,name:ally.name,by:e.id})}}}}
+ if(e.status==='down'){e.bleed-=dt;if(e.bleed<=0)eliminate(m,e,m.entities.find(a=>a.id===e.downedBy))}else{if(input.fire&&(WEAPONS[e.weapon].auto||!e.triggerHeld))shoot(m,e);e.triggerHeld=!!input.fire;collect(m,e);if(input.autoPickup&&e.human&&ownedWeapons(e).length<3){const item=nearbyWeaponItems(m,e,solids,1.8).find(item=>!e.weapons[item.weapon].owned);if(item)pickupWeapon(m,e,item.id,{auto:true})}if(input.revive){const ally=members(m,e.team).find(a=>a.status==='down'&&Math.hypot(a.x-e.x,a.z-e.z)<2.7&&lineClear({x:e.x,y:e.y+1,z:e.z},{x:a.x,y:a.y+.4,z:a.z},solids));if(ally&&!revived.has(ally.id)){revived.add(ally.id);ally.revive+=dt;if(ally.revive>=3){ally.status='alive';ally.hp=45;ally.revive=0;ally.bleed=30;event(m,'revived',{id:ally.id,name:ally.name,by:e.id})}}}}
  if(Math.hypot(e.x,e.z)>m.zone)damage(m,e,(2+Math.floor(m.time/(m.duration/4)))*dt);
  }
  for(const e of m.entities)if(e.status==='down'&&!revived.has(e.id))e.revive=0;
