@@ -1,0 +1,34 @@
+// Offline conversion: CC0 Universal Base Characters faces onto the existing
+// modular animation rig. Hair, outfits and all clothing combinations are retained.
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import * as T from '../public/vendor/three.module.js';
+import {GLTFLoader} from '../public/vendor/addons/loaders/GLTFLoader.js';
+import {GLTFExporter} from '../public/vendor/addons/exporters/GLTFExporter.js';
+globalThis.ProgressEvent=class{constructor(type,options){this.type=type;Object.assign(this,options)}};
+globalThis.FileReader=class{readAsArrayBuffer(blob){blob.arrayBuffer().then(result=>{this.result=result;this.onloadend?.()})}readAsDataURL(blob){blob.arrayBuffer().then(b=>{this.result='data:'+blob.type+';base64,'+Buffer.from(b).toString('base64');this.onloadend?.()})}};
+const sourceDir=resolve(process.argv[2]??'../modern-character-assets'),originalDir=resolve(process.argv[3]??'../modern-character-assets/original');
+const loader=new GLTFLoader();
+async function base(sex){const doc=JSON.parse(await readFile(sourceDir+'/Superhero_'+sex+'_FullBody.gltf','utf8'));doc.buffers[0].uri='data:application/octet-stream;base64,'+(await readFile(sourceDir+'/Superhero_'+sex+'_FullBody.bin')).toString('base64');delete doc.images;delete doc.textures;for(const m of doc.materials??[]){m.pbrMetallicRoughness??={};delete m.pbrMetallicRoughness.baseColorTexture;delete m.pbrMetallicRoughness.metallicRoughnessTexture;delete m.normalTexture;delete m.occlusionTexture;delete m.emissiveTexture}const model=await loader.parseAsync(JSON.stringify(doc),'');model.scene.updateMatrixWorld(true);return model}
+function slotOf(mesh){let n=mesh;while(n&&!/_Head$/.test(n.name))n=n.parent;return n}
+await mkdir(originalDir,{recursive:true});
+const donorModels={Male:await base('Male'),Female:await base('Female')};const metadata=[];
+for(const[key,sex]of[['operative','Male'],['nova','Female'],['ghost','Male']]){
+ const file=originalDir+'/'+key+'.glb';let bytes;try{bytes=await readFile(file)}catch{bytes=await readFile('public/models/'+key+'.glb');await writeFile(file,bytes)}
+ const target=await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');target.scene.updateMatrixWorld(true);let body,headGroup,oldHead;
+ target.scene.traverse(o=>{if(o.isSkinnedMesh){body??=o;if(slotOf(o)&&o.material.name==='Skin'){headGroup=slotOf(o);oldHead=o}}});if(!oldHead)throw Error('Missing skin face '+key);
+ const rig=oldHead.skeleton,headIndex=rig.bones.findIndex(b=>b.name==='Head'),neckIndex=rig.bones.findIndex(b=>b.name==='Neck'),headBind=rig.bones[headIndex].matrixWorld.clone();const faceRig=new T.Skeleton(rig.bones,rig.bones.map(b=>b.matrixWorld.clone().invert()));
+ const donor=donorModels[sex];let sourceBody;donor.scene.traverse(o=>{if(o.isSkinnedMesh&&/superhero/i.test(o.name))sourceBody=o});if(!sourceBody)throw Error('Missing source body');const sourceRig=sourceBody.skeleton,sourceHead=sourceRig.bones.findIndex(b=>b.name==='Head');
+ const inverseSource=sourceRig.bones[sourceHead].matrixWorld.clone().invert(),inverseTarget=headBind.clone().invert(),point=new T.Vector3(),oldBounds=new T.Box3();for(let i=0;i<oldHead.geometry.attributes.position.count;i++){oldHead.getVertexPosition(i,point).applyMatrix4(oldHead.matrixWorld).applyMatrix4(inverseTarget);oldBounds.expandByPoint(point)}
+ const sourceGeo=sourceBody.geometry,pos=sourceGeo.attributes.position,indices=sourceGeo.attributes.skinIndex,weights=sourceGeo.attributes.skinWeight,selected=new Set();for(let i=0;i<pos.count;i++){let headWeight=0;for(let n=0;n<4;n++)if(indices.array[i*4+n]===sourceHead)headWeight+=weights.array[i*4+n];if(headWeight>.25)selected.add(i)}
+ const bounds=new T.Box3();for(const i of selected){sourceBody.getVertexPosition(i,point).applyMatrix4(sourceBody.matrixWorld).applyMatrix4(inverseSource);bounds.expandByPoint(point)}const oldSize=oldBounds.getSize(new T.Vector3()),newSize=bounds.getSize(new T.Vector3()),scale=new T.Vector3(oldSize.x/newSize.x,Math.min(.26,oldSize.y)/newSize.y,Math.min(.24,oldSize.z)/newSize.z),oldCenter=oldBounds.getCenter(new T.Vector3()),newCenter=bounds.getCenter(new T.Vector3());
+ oldCenter.y=oldBounds.max.y-Math.min(.26,oldSize.y)/2;
+ const transform=p=>p.applyMatrix4(inverseSource).sub(newCenter).multiply(scale).add(oldCenter).applyMatrix4(headBind);
+ function faceMesh(source,skinOnly){const geo=source.geometry,faces=geo.index?.array??Array.from({length:geo.attributes.position.count},(_,i)=>i),points=[],skinIndices=[],skinWeights=[];for(let k=0;k<faces.length;k+=3){const tri=[faces[k],faces[k+1],faces[k+2]];if(skinOnly&&!tri.every(i=>selected.has(i)))continue;for(const i of tri){source.getVertexPosition(i,point).applyMatrix4(source.matrixWorld);transform(point);points.push(point.x,point.y,point.z);skinIndices.push(headIndex,neckIndex,0,0);let w=1;if(skinOnly){w=0;for(let n=0;n<4;n++)if(geo.attributes.skinIndex.array[i*4+n]===sourceHead)w+=geo.attributes.skinWeight.array[i*4+n]}skinWeights.push(w,1-w,0,0)}}const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(skinIndices,4));geometry.setAttribute('skinWeight',new T.Float32BufferAttribute(skinWeights,4));geometry.setIndex(Array.from({length:points.length/3},(_,i)=>i));geometry.computeVertexNormals();const m=new T.SkinnedMesh(geometry,new T.MeshStandardMaterial({color:skinOnly?oldHead.material.color:source.name==='Eyes'?0x303846:0x302529,roughness:.7}));m.material.name=skinOnly?'Skin':source.name==='Eyes'?'Eyes':'Hair';m.name='Modern_'+source.name;m.bind(faceRig,new T.Matrix4());return m}
+ // Put metre-space converted geometry into a named head slot. The donor clothing
+ // loader can still recognize and mix the same parts without any extra draw calls.
+ const parent=target.scene;const group=new T.Group();group.name='Modern_Head';parent.add(group);group.add(faceMesh(sourceBody,true));donor.scene.traverse(o=>{if(o.isSkinnedMesh&&['Eyes','Eyebrows'].includes(o.name))group.add(faceMesh(o,false))});
+ const remove=[];headGroup.traverse(o=>{if(o.isMesh&&['Skin','Eye','Eyes','Eyebrows','White','Black'].includes(o.material.name))remove.push(o)});for(const m of remove)m.parent.remove(m);
+ const output=await new GLTFExporter().parseAsync(target.scene,{binary:true,animations:target.animations,onlyVisible:false});await writeFile('public/models/'+key+'.glb',Buffer.from(output));metadata.push({model:key,source:sex,scale:scale.toArray(),oldBounds:oldSize.toArray(),newHeadTriangles:group.children.reduce((n,o)=>n+o.geometry.attributes.position.count/3,0),bytes:output.byteLength});
+}
+await writeFile('public/models/MODERN-FACES.json',JSON.stringify(metadata,null,2));console.log(JSON.stringify(metadata));

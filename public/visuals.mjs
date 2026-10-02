@@ -28,14 +28,14 @@ function mergeCharacter(model,animations){let neutralRig,neutralMixer,sourceMixe
  first.skeleton.boneInverses=parts[0].inverses.map(m=>m.clone());
  const geometry=mergeGeometries(parts.map(p=>p.geometry),false),combined=new T.SkinnedMesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:.68,metalness:.02}));combined.name='OperativeBody';combined.bind(first.skeleton,new T.Matrix4());model.add(combined);for(const mesh of meshes){mesh.parent.remove(mesh);mesh.geometry.dispose();mesh.material.dispose()}neutralMixer?.stopAllAction();sourceMixer?.stopAllAction();return{parts,skeleton:first.skeleton,body:combined};
 }
-export function prepareCharacter(gltf,key='operative'){character=gltf.scene;const source=mergeCharacter(character,gltf.animations);if(key!=='operative'){templates.set(key,{model:character,clips:[],...source});return}clips=gltf.animations.map(original=>{const clip=original.clone();clip.name=clip.name.replace(/^CharacterArmature\|/,'');
- if(!['Idle_Gun_Pointing','Run_Shoot'].includes(clip.name))return clip;
+export function prepareCharacter(gltf,key='operative'){character=gltf.scene;const source=mergeCharacter(character,gltf.animations);if(key!=='operative'){templates.set(key,{model:character,clips:[],...source});return}const reload=gltf.animations.find(c=>c.name.endsWith('Idle_Gun_Pointing')).clone();reload.name='Reload';reload.duration=1.6;clips=[...gltf.animations,reload].map(original=>{const clip=original.clone();clip.name=clip.name.replace(/^CharacterArmature\|/,'');
+ if(!['Idle_Gun_Pointing','Run_Shoot','Run','Reload'].includes(clip.name))return clip;
  const root=new T.Group(),model=clone(character);model.scale.setScalar(1.1);model.rotation.y=Math.PI;root.add(model);
  const mixer=new T.AnimationMixer(model);mixer.clipAction(clip).play();const right=model.getObjectByName('WristR'),left=model.getObjectByName('WristL'),arm=['LowerArmL','UpperArmL'].map(n=>model.getObjectByName(n));
  if(!right||!left||arm.some(b=>!b))return clip;
  const times=[],positions=[],poses=arm.map(()=>[]),count=Math.max(2,Math.ceil(clip.duration*24));
- for(let n=0;n<=count;n++){const time=n/count*clip.duration;times.push(time);mixer.setTime(Math.min(time,clip.duration-1e-6));root.updateMatrixWorld(true);right.getWorldPosition(hand);positions.push(hand.x,hand.y+.14,hand.z-.12);goal.set(hand.x-.16,hand.y-.02,hand.z-.22);
-  for(let i=0;i<2;i++)for(const bone of arm){bone.getWorldPosition(joint);left.getWorldPosition(hand);from.subVectors(hand,joint).normalize();to.subVectors(goal,joint).normalize();rotation.setFromUnitVectors(from,to).multiply(bone.getWorldQuaternion(parentRotation));bone.parent.getWorldQuaternion(parentRotation).invert();bone.quaternion.copy(parentRotation.multiply(rotation));root.updateMatrixWorld(true)}
+ for(let n=0;n<=count;n++){const time=n/count*clip.duration;times.push(time);mixer.setTime(Math.min(time,clip.duration-1e-6));root.updateMatrixWorld(true);right.getWorldPosition(hand);positions.push(hand.x,hand.y+.14,hand.z-.12);goal.set(hand.x-.16,hand.y-.02,hand.z-.22);if(clip.name==='Reload'){const phase=Math.sin(Math.PI*time/clip.duration);goal.set(hand.x-.04,hand.y-.03-.22*phase,hand.z-.08-.10*phase)}
+  for(let i=0;i<(clip.name==='Run'?0:2);i++)for(const bone of arm){bone.getWorldPosition(joint);left.getWorldPosition(hand);from.subVectors(hand,joint).normalize();to.subVectors(goal,joint).normalize();rotation.setFromUnitVectors(from,to).multiply(bone.getWorldQuaternion(parentRotation));bone.parent.getWorldQuaternion(parentRotation).invert();bone.quaternion.copy(parentRotation.multiply(rotation));root.updateMatrixWorld(true)}
   arm.forEach((bone,i)=>bone.quaternion.toArray(poses[i],poses[i].length));
  }
  const tracks=clip.tracks.filter(track=>!arm.some(b=>track.name===b.name+'.quaternion')).map(track=>track.clone());
@@ -46,7 +46,7 @@ function outfitGeometry(appearance){const a=normalizeAppearance(appearance),key=
  for(const slot of['head','body','legs','feet','bag']){if(slot==='bag'&&!a.backpack)continue;const outfit=slot==='body'?a.upper:slot==='legs'?a.lower:slot==='feet'?a.feet:null,source=slot==='head'?target:slot==='bag'?base:templates.get(OUTFITS[outfit].model)??base;
   for(const part of source.parts.filter(p=>p.slot===slot)){const geo=part.geometry.clone(),index=geo.attributes.skinIndex;for(let i=0;i<index.count;i++)for(let n=0;n<4;n++)index.array[i*4+n]=Math.max(0,bones.indexOf(part.bones[index.array[i*4+n]]));const colors=geo.attributes.color;let tint;
    if(part.material==='Skin')tint=new T.Color(SKIN[a.skin].hex);else if(/Hair|Eyebrow/.test(part.material)||slot==='head'&&part.material==='Pink')tint=new T.Color(HAIR[a.hair].hex);else if(slot!=='head'&&slot!=='bag')tint=new T.Color(SWATCHES[slot==='body'?a.upperColor:slot==='legs'?a.lowerColor:a.feetColor].hex);
-   if(tint)for(let i=0;i<colors.count;i++){const luminance=(colors.getX(i)+colors.getY(i)+colors.getZ(i))/3,shade=part.material==='Skin'||/Hair|Eyebrow/.test(part.material)?1:Math.min(1.35,.65+luminance);colors.setXYZ(i,tint.r*shade,tint.g*shade,tint.b*shade)}parts.push(geo)
+   if(a.cosmetic!=='default'&&slot!=='head'&&slot!=='bag'&&part.material!=='Skin'){const palette={scholar:[0xdbc478,0x253657,0xc6a450],aurora:[0x7c9add,0x394b85,0x89dccd],heart:[0xea9abe,0x643775,0xdac1ec]}[a.cosmetic];tint=new T.Color(palette[slot==='body'?0:slot==='legs'?1:2])}if(tint)for(let i=0;i<colors.count;i++){const luminance=(colors.getX(i)+colors.getY(i)+colors.getZ(i))/3,shade=part.material==='Skin'||/Hair|Eyebrow/.test(part.material)?1:Math.min(1.35,.65+luminance);colors.setXYZ(i,tint.r*shade,tint.g*shade,tint.b*shade)}parts.push(geo)
   }
  }
  const rig=base.skeleton,boneNames=rig.bones.map(b=>b.name);
@@ -54,7 +54,7 @@ function outfitGeometry(appearance){const a=normalizeAppearance(appearance),key=
  const detail=(bone,w,h,d,x,y,z,color)=>rigged(new T.BoxGeometry(w,h,d).translate(x,y,z),bone,color);
  // Video-inspired white/gold jacket, purple street outfit and dark cyan hood.
  // Clothing details use the real rig names and merge into the existing skin draw call.
- const trim=a.upper===2?0x69d6e8:0xe9bf61,dark=0x182632;
+ const trim=a.cosmetic==='heart'?0xffbddc:a.cosmetic==='aurora'?0x89eedd:a.upper===2?0x69d6e8:0xe9bf61,dark=0x182632;
  detail('Chest',.012,.27,.018,0,.01,.137,trim);
  for(const sign of[-1,1]){
   detail('Chest',.075,.09,.027,sign*.105,-.055,.125,dark);detail('Chest',.08,.008,.03,sign*.105,-.018,.142,trim);
@@ -85,8 +85,8 @@ function gunMaterial(color){const metal=color===0x7e8f98;if(!gunMaterials.has(co
 function gunBox(parent,w,h,d,color,x=0,y=0,z=0){const bevel=Math.min(.016,w*.15,h*.15,d*.15),shape=new T.Shape(),hw=w/2,hh=h/2;shape.moveTo(-hw+bevel,-hh);shape.lineTo(hw-bevel,-hh);shape.quadraticCurveTo(hw,-hh,hw,-hh+bevel);shape.lineTo(hw,hh-bevel);shape.quadraticCurveTo(hw,hh,hw-bevel,hh);shape.lineTo(-hw+bevel,hh);shape.quadraticCurveTo(-hw,hh,-hw,hh-bevel);shape.lineTo(-hw,-hh+bevel);shape.quadraticCurveTo(-hw,-hh,-hw+bevel,-hh);const geometry=new T.ExtrudeGeometry(shape,{depth:d-2*bevel,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:2,steps:1,curveSegments:3});geometry.translate(0,0,-d/2+bevel);const mesh=new T.Mesh(geometry,gunMaterial(color,color===0x7e8f98));mesh.position.set(x,y,z);parent.add(mesh);return mesh}
 function gunProfile(parent,width,points,color){const shape=new T.Shape();points.forEach(([z,y],i)=>i?shape.lineTo(z,y):shape.moveTo(z,y));shape.closePath();const geo=new T.ExtrudeGeometry(shape,{depth:width-.012,bevelEnabled:true,bevelSize:.006,bevelThickness:.006,bevelSegments:2,steps:1});geo.translate(0,0,-(width-.012)/2);geo.rotateY(-Math.PI/2);const mesh=new T.Mesh(geo,gunMaterial(color));parent.add(mesh);return mesh}
 
-export function setAvatarWeapon(avatar,index){if(avatar.userData.weapon===index)return;const g=avatar.userData.gun;g.clear();avatar.userData.weapon=index;
- if(!weaponModels.has(index)){const spec=WEAPONS[index],style=WEAPON_STYLES[index],parts=new T.Group(),dark=0x172631,metal=0x7e8f98,wood=style.base,accent=style.accent,sg=spec.kind==='SHOTGUN',pistol=spec.kind==='PISTOL',sniper=spec.kind==='SNIPER RIFLE',smg=spec.kind==='SUBMACHINE GUN',heavy=spec.kind==='MACHINE GUN',bullpup=spec.id==='groza',length=pistol?.25:smg?.35:sniper?.68:spec.id==='mag7'?.34:.50;
+export function setAvatarWeapon(avatar,index){const skin=avatar.userData.appearance?.cosmetic??'default',key=index+':'+skin;if(avatar.userData.weapon===index&&avatar.userData.weaponSkin===skin)return;avatar.userData.weaponSkin=skin;const g=avatar.userData.gun;g.clear();avatar.userData.weapon=index;
+ if(!weaponModels.has(key)){const spec=WEAPONS[index],style=skin==='heart'?{base:0xb85198,accent:0xffd4e7}:skin==='aurora'?{base:0x5a62af,accent:0x91f2d6}:skin==='scholar'?{base:0x3c5579,accent:0xebce7c}:WEAPON_STYLES[index],parts=new T.Group(),dark=0x172631,metal=0x7e8f98,wood=style.base,accent=style.accent,sg=spec.kind==='SHOTGUN',pistol=spec.kind==='PISTOL',sniper=spec.kind==='SNIPER RIFLE',smg=spec.kind==='SUBMACHINE GUN',heavy=spec.kind==='MACHINE GUN',bullpup=spec.id==='groza',length=pistol?.25:smg?.35:sniper?.68:spec.id==='mag7'?.34:.50;
  gunProfile(parts,pistol?.10:.085,[[-length*.5,-.05],[-length*.5,.038],[-length*.32,.070],[length*.35,.070],[length*.5,.025],[length*.5,-.055],[length*.02,-.075]],wood);const tube=(radius,len,x,y,z,color)=>{const m=new T.Mesh(new T.CylinderGeometry(radius,radius,len,20),gunMaterial(color));m.rotation.x=Math.PI/2;m.position.set(x,y,z);parts.add(m);return m};
  tube(sg?.034:.023,pistol?.15:smg?.22:sniper?.72:.48,0,.025,-length*.65,metal);
  if(sg){tube(.022,spec.id==='mag7'?.18:.40,0,-.036,-length*.64,dark);gunBox(parts,.09,.07,.15,accent,0,-.035,-length*.70)}
@@ -111,15 +111,15 @@ export function setAvatarWeapon(avatar,index){if(avatar.userData.weapon===index)
  // Narrow colored inlays and a small original heart emblem connect all skins.
  for(const sign of[-1,1]){gunBox(parts,.009,.022,length*.60,accent,sign*.050,.020,-length*.10);for(let n=0;n<3;n++)gunBox(parts,.01,.04,.012,accent,sign*.052,-.015,-.10+n*.05).rotation.x=.45}
  const heart=new T.Shape();heart.moveTo(0,-.026);heart.bezierCurveTo(-.041,.003,-.027,.045,0,.019);heart.bezierCurveTo(.027,.045,.041,.003,0,-.026);for(const sign of[-1,1]){const badge=new T.Mesh(new T.ShapeGeometry(heart,5),gunMaterial(accent));badge.rotation.y=sign*Math.PI/2;badge.position.set(sign*.057,.025,.065);parts.add(badge)}
- parts.traverse(o=>{if(o.geometry?.index){const old=o.geometry;o.geometry=old.toNonIndexed();old.dispose()}});batchStatic(parts,false);weaponModels.set(index,parts);
+ parts.traverse(o=>{if(o.geometry?.index){const old=o.geometry;o.geometry=old.toNonIndexed();old.dispose()}});batchStatic(parts,false);weaponModels.set(key,parts);
  }
- for(const child of weaponModels.get(index).children){const mesh=child.clone();mesh.userData.sharedWeapon=true;g.add(mesh)}
+ for(const child of weaponModels.get(key).children){const mesh=child.clone();mesh.userData.sharedWeapon=true;g.add(mesh)}
 }
 const hand=new T.Vector3(),joint=new T.Vector3(),goal=new T.Vector3(),from=new T.Vector3(),to=new T.Vector3(),rotation=new T.Quaternion(),parentRotation=new T.Quaternion();
 export function animateAvatar(root,e,dt){
- const data=root.userData,name=e.status==='dead'||e.status==='down'?'Death':e.preview?'Idle_Neutral':e.speed>1?'Run_Shoot':'Idle_Gun_Pointing';
- if(data.current!==name){const old=data.actions[data.current],next=data.actions[name]??data.actions.Idle_Neutral;if(name==='Death'){next.reset().setLoop(T.LoopOnce,1);next.clampWhenFinished=true}else next.reset().setLoop(T.LoopRepeat,Infinity);old?.fadeOut(.12);next.fadeIn(.12).play();data.current=name}
- if(name!=='Death'||data.actions.Death.isRunning())data.mixer.update(dt);data.model.position.y=e.crouch&&e.status==='alive'?-.24:0;data.model.scale.y=e.crouch&&e.status==='alive'?.99:1.1;data.gun.visible=e.status==='alive'&&!e.dropping&&!e.preview;data.gun.rotation.x=e.pitch??0;if(data.gun.visible&&e.crouch)data.gun.position.y-=.24;data.shadow.visible=!e.dropping&&(e.jump??0)<.1;
+ const data=root.userData,name=e.status==='dead'||e.status==='down'?'Death':e.preview?'Idle_Neutral':e.reload>0?'Reload':e.speed>1?(e.aim?'Run_Shoot':'Run'):'Idle_Gun_Pointing';
+ if(data.current!==name){const old=data.actions[data.current],next=data.actions[name]??data.actions.Idle_Neutral;if(name==='Death'||name==='Reload'){next.reset().setLoop(T.LoopOnce,1);next.clampWhenFinished=true;if(name==='Reload')next.setEffectiveTimeScale(1.6/(WEAPONS[e.weapon??data.weapon]?.reload??2))}else next.reset().setLoop(T.LoopRepeat,Infinity);old?.fadeOut(.12);next.fadeIn(.12).play();data.current=name}
+ if(name!=='Death'||data.actions.Death.isRunning())data.mixer.update(dt);data.model.position.y=e.crouch&&e.status==='alive'?-.24:0;data.model.scale.y=e.crouch&&e.status==='alive'?.99:1.1;data.gun.visible=e.status==='alive'&&!e.dropping&&!e.preview;data.gun.rotation.x=(e.pitch??0)+(name==='Reload'?.24:0);data.gun.rotation.z=name==='Reload'?.12:0;if(data.gun.visible&&e.crouch)data.gun.position.y-=.24;data.shadow.visible=!e.dropping&&(e.jump??0)<.1;
  data.model.traverse(o=>{if(o.isBone)o.updateMatrix()});data.status=e.status;
 }
 export function disposeAvatar(root){const data=root.userData;data.mixer.stopAllAction();data.mixer.uncacheRoot(root);if(data.outfitEntry)data.outfitEntry.users--;const skeletons=new Set();data.model.traverse(o=>{if(o.isMesh)o.material.dispose();if(o.skeleton)skeletons.add(o.skeleton)});for(const s of skeletons)s.dispose();for(const c of data.gun.children)if(!c.userData.sharedWeapon)c.geometry?.dispose();data.shadow.geometry.dispose();data.shadow.material.dispose()}

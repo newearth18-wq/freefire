@@ -13,3 +13,9 @@ export const roomInputs=sqliteTable('room_inputs',{
  updated:integer('updated').notNull(),
  expires:integer('expires').notNull(),
 },t=>[primaryKey({columns:[t.code,t.memberId]}),index('room_inputs_expires').on(t.expires)]);
+export const learnerProfiles=sqliteTable('learner_profiles',{
+ token:text('token').primaryKey(),appearance:text('appearance').notNull().default('{}'),created:integer('created').notNull(),
+});
+export const learningRewards=sqliteTable('learning_rewards',{
+ profileToken:text('profile_token').notNull(),matchId:text('match_id').notNull(),questionId:text('question_id').notNull(),stars:integer('stars').notNull(),
+},t=>[primaryKey({columns:[t.profileToken,t.matchId,t.questionId]})]);

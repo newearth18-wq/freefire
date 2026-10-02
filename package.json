@@ -1,13 +1,13 @@
 {
   "name": "last-island",
-  "version": "8.1.1",
+  "version": "9.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node scripts/dev-server.mjs",
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
-    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs && node scripts/verify-visuals.mjs && node scripts/verify-loadout.mjs && node scripts/verify-loot.mjs && node scripts/verify-motion.mjs && node scripts/verify-combat.mjs && node scripts/verify-classroom.mjs && node scripts/verify-world.mjs && node scripts/verify-shot-effects.mjs && node scripts/verify-desktop-input.mjs"
+    "test": "node scripts/verify-engine.mjs && node scripts/verify-online.mjs && node scripts/verify-visuals.mjs && node scripts/verify-loadout.mjs && node scripts/verify-loot.mjs && node scripts/verify-motion.mjs && node scripts/verify-combat.mjs && node scripts/verify-classroom.mjs && node scripts/verify-world.mjs && node scripts/verify-shot-effects.mjs && node scripts/verify-desktop-input.mjs && node scripts/verify-session-features.mjs"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.11",

@@ -22,7 +22,7 @@ export function normalizeAppearance(value){const a=value&&typeof value==='object
  character:CHARACTERS.some(c=>c.id===a.character)?a.character:DEFAULT_APPEARANCE.character,
  upper:choice(a.upper,3,0),lower:choice(a.lower,3,0),feet:choice(a.feet,3,0),
  upperColor:choice(a.upperColor,SWATCHES.length,6),lowerColor:choice(a.lowerColor,SWATCHES.length,6),feetColor:choice(a.feetColor,SWATCHES.length,5),
- hair:choice(a.hair,4,0),skin:choice(a.skin,4,1),backpack:typeof a.backpack==='boolean'?a.backpack:true
+ hair:choice(a.hair,4,0),skin:choice(a.skin,4,1),backpack:typeof a.backpack==='boolean'?a.backpack:true,cosmetic:['scholar','aurora','heart'].includes(a.cosmetic)?a.cosmetic:'default'
 }}
 export function appearanceKey(value){return JSON.stringify(normalizeAppearance(value))}
 export function characterInfo(value){return CHARACTERS.find(c=>c.id===normalizeAppearance(value).character)}

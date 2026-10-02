@@ -15,7 +15,7 @@ let visits=0;bone.updateMatrixWorld=function(force){visits++;return update.call(
 hidden.visible=false;hidden.updateMatrixWorld(true);assert.equal(visits,0,'hidden rigs skip skeleton traversal');
 hidden.visible=true;hidden.position.x=3;hidden.updateMatrixWorld(true);assert.ok(visits>0,'visible rigs resume world transforms');
 assert.equal(hidden.matrixWorld.elements[12],3);hidden.position.x=0;bone.updateMatrixWorld=update;
-for(const avatar of avatars){let meshes=0;avatar.userData.model.traverse(o=>{if(o.isSkinnedMesh){meshes++;assert.ok(o.geometry.index.count/3>=10202&&o.geometry.index.count/3<11000,'jacket ornaments and mask add fewer than 800 triangles');assert.equal(o.skeleton.bones.length,62);assert.ok(o.geometry.attributes.color)}});assert.equal(meshes,1,'the full character uses one draw call');
+for(const avatar of avatars){let meshes=0;avatar.userData.model.traverse(o=>{if(o.isSkinnedMesh){meshes++;assert.ok(o.geometry.index.count/3>=14000&&o.geometry.index.count/3<16000,'detailed faces stay within the 16k triangle avatar budget');assert.equal(o.skeleton.bones.length,62);assert.ok(o.geometry.attributes.color)}});assert.equal(meshes,1,'the full character uses one draw call');
  for(const speed of[0,5.4])for(let frame=0;frame<90;frame++){animateAvatar(avatar,{status:'alive',speed,crouch:false,pitch:0},1/60);avatar.updateMatrixWorld(true);avatar.userData.model.getObjectByName('WristR').getWorldPosition(point);assert.ok(point.distanceTo(avatar.userData.gun.position)<.4,'baked weapon anchor remains at the right hand');assert.ok(Number.isFinite(point.y)&&point.y>.5&&point.y<2.5,'animated skeleton has a valid standing pose')}
  animateAvatar(avatar,{status:'down',speed:0,crouch:false},.1);assert.equal(avatar.userData.gun.visible,false);
  for(let i=0;i<100;i++)animateAvatar(avatar,{status:'dead',speed:0,crouch:false},.05);
@@ -23,5 +23,5 @@ for(const avatar of avatars){let meshes=0;avatar.userData.model.traverse(o=>{if(
 }
 let colors=[];for(const avatar of avatars)avatar.userData.model.traverse(o=>{if(o.isSkinnedMesh)colors.push(o.geometry.attributes.color.array)});
 assert.notDeepEqual(colors[0],colors[1],'team clothing colors remain distinct');
-avatars.forEach(disposeAvatar);
+const animated=avatars[0];animateAvatar(animated,{status:'alive',speed:5,aim:false},.1);assert.equal(animated.userData.current,'Run');animateAvatar(animated,{status:'alive',speed:5,aim:true},.1);assert.equal(animated.userData.current,'Run_Shoot');animateAvatar(animated,{status:'alive',speed:0,reload:1.5,weapon:0},.1);assert.equal(animated.userData.current,'Reload');assert.ok(animated.userData.gun.visible);animated.userData.appearance.cosmetic='heart';setAvatarWeapon(animated,0);assert.equal(animated.userData.weaponSkin,'heart');assert.notEqual(animated.userData.gun.children[0].material,avatars[1].userData.gun.children[0].material,'earned skins change actual 3D weapon materials');avatars.forEach(disposeAvatar);
 console.log('Visual tests passed: merged geometry, skeleton, baked hand/weapon alignment, team colors and death animation');

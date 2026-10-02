@@ -79,3 +79,16 @@ Author: Quaternius. License: CC0 1.0 Universal.
 - `nova.glb`: Punk, Ultimate Modular Women. 5,956 triangles, 62 bones, 24 animations. Source: https://poly.pizza/m/djXoqejw6w . Download: https://static.poly.pizza/1d368679-1d9a-4d5c-9095-877144b02d00.glb . Official pack: https://quaternius.com/packs/ultimatemodularwomen.html .
 
 Models are locally hosted. Mesh exports are converted to metres and remapped to the Adventurer skeleton by bone name during loading, so independently selected head, torso, trousers and shoes share the same optimized animation rig. Original animation names are normalized in memory. Clothing stays one skinned draw call per actor. LAST ISLAND character names are original labels.
+
+
+## Detailed faces (v9, October 2, 2026)
+
+The three shipping GLBs now combine the existing CC0 modular clothing and animation rigs with facial geometry from Quaternius Universal Base Characters (Superhero Male / Female, Standard, August 2025). Faces are fitted offline to each head; original hair and all clothing slots remain interchangeable. Eye and eyebrow geometry is included. No Free Fire models are bundled.
+
+Official author: https://quaternius.com/packs/universalbasecharacters.html
+Official distribution: https://quaternius.itch.io/universal-base-characters
+Source mirror used: https://github.com/NafisRayan/Animate-Rigged-Humanoid-No-Blender/tree/5821923af517ac5fdc82505faa92a0d575fc1b1a/Universal%20Base%20Characters%5BStandard%5D
+License: CC0 1.0 Universal; see UNIVERSAL-BASE-LICENSE.txt.
+Preparation: scripts/prepare-modern-faces.mjs; counts and fitting parameters: MODERN-FACES.json. The old original-file hashes above identify the original assets, not these modified GLBs.
+
+Reload support-hand motion and weapon anchors for free running are baked when loading the model. They retain the existing 62-bone rig and one combined skin draw call.
