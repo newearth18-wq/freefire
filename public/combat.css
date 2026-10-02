@@ -7,3 +7,5 @@
 
 #settings-panel .modal{touch-action:pan-y}#sensitivity-settings input{touch-action:pan-x}
 @media(min-width:901px) and (min-height:651px){.lobby-rail{gap:9px}.lobby-rail .rail-button{height:48px}}
+
+.gun-silhouette,.gun-silhouette.smg,.gun-silhouette.pistol{height:auto;width:100%;transform:none;margin:16px auto;background:none}.gun-silhouette img{display:block;width:100%;height:auto;border:1px solid #51738544}.gun-silhouette:after{display:none!important}

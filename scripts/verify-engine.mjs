@@ -21,7 +21,7 @@ const inputs=makeMatch();inputs.drop=0;const p=inputs.entities[0];setInput(input
 const bld=BUILDINGS[0],feet=groundHeight(bld.x,bld.z);assert.ok(canStand(bld.x,bld.z+bld.d/2,undefined,.45,feet),'door gap permits player movement');assert.equal(canStand(bld.x-bld.w/2,bld.z,undefined,.45,feet),false,'exterior walls collide');
 const obstruction=[{x:0,z:3,w:4,d:.2,y:0,h:4}],cam=cameraPosition({x:0,z:0,y:0,yaw:0,aim:false,crouch:false},obstruction);assert.ok(cam.z<3,'camera stays in front of a wall');
 const landing=makeMatch();landing.drop=.02;Object.assign(landing.entities[0],{x:bld.x-bld.w/2,z:bld.z,y:feet+1});tick(landing,.04);assert.ok(canStand(landing.entities[0].x,landing.entities[0].z,undefined,.45,landing.entities[0].y),'landing repairs overlap with a building');
-const zone=makeMatch();zone.drop=0;zone.time=500;zone.entities[0].x=100;zone.entities[0].z=0;zone.entities[0].human=true;advance(zone,.5);assert.ok(zone.entities[0].hp<100);assert.ok(zone.events.every(e=>e.type!=='damage'||e.amount>0));assert.equal(view(zone,'you').mode,'solo');
+const zone=makeMatch();zone.drop=0;zone.time=500;zone.entities[0].x=250;zone.entities[0].z=0;zone.entities[0].human=true;advance(zone,.5);assert.ok(zone.entities[0].hp<100);assert.ok(zone.events.every(e=>e.type!=='damage'||e.amount>0));assert.equal(view(zone,'you').mode,'solo');
 // A teammate must traverse the house through its doors and revive an ally.
 const rescue=makeMatch({mode:'squad'});rescue.drop=0;rescue.loot=[];rescue.entities=[rescue.entities[0],rescue.entities[1],rescue.entities[5]];
 const fallen=rescue.entities[0],helper=rescue.entities[1],observer=rescue.entities[2];

@@ -1,0 +1,28 @@
+const learningError=message=>Object.assign(new Error(message),{status:400});
+export const SAMPLE_QUESTIONS=[
+ {id:'q1',subject:'คณิตศาสตร์',text:'ถ้า 2x + 5 = 17 แล้ว x มีค่าเท่าใด?',choices:['4','5','6','7'],answer:2,explanation:'2x = 12 ดังนั้น x = 6'},
+ {id:'q2',subject:'วิทยาศาสตร์',text:'พืชใช้แก๊สใดในการสังเคราะห์ด้วยแสง?',choices:['ออกซิเจน','คาร์บอนไดออกไซด์','ไนโตรเจน','ฮีเลียม'],answer:1,explanation:'พืชใช้คาร์บอนไดออกไซด์และน้ำ สร้างน้ำตาลด้วยพลังงานแสง'},
+ {id:'q3',subject:'ภาษาอังกฤษ',text:'Choose the correct sentence.',choices:['She go to school.','She going school.','She goes to school.','She gone school.'],answer:2,explanation:'Present simple: ประธาน she ใช้ goes'},
+ {id:'q4',subject:'คณิตศาสตร์',text:'พื้นที่สามเหลี่ยมฐาน 10 ซม. สูง 6 ซม. เท่ากับเท่าใด?',choices:['16 ตร.ซม.','30 ตร.ซม.','60 ตร.ซม.','36 ตร.ซม.'],answer:1,explanation:'พื้นที่ = ½ × ฐาน × สูง = 30 ตร.ซม.'},
+ {id:'q5',subject:'วิทยาศาสตร์',text:'หน่วย SI ของแรงคือข้อใด?',choices:['จูล','วัตต์','นิวตัน','โวลต์'],answer:2,explanation:'แรงวัดเป็นนิวตัน (N)'},
+ {id:'q6',subject:'ภาษาไทย',text:'คำใดเป็นคำกริยา?',choices:['นักเรียน','โรงเรียน','สวย','วิ่ง'],answer:3,explanation:'วิ่งเป็นคำแสดงการกระทำ'},
+ {id:'q7',subject:'คณิตศาสตร์',text:'โอกาสทอยลูกเต๋า 1 ลูกได้เลขคู่เป็นเท่าใด?',choices:['1/6','1/3','1/2','2/3'],answer:2,explanation:'เลขคู่คือ 2, 4, 6 รวม 3 จาก 6 ผลลัพธ์'},
+ {id:'q8',subject:'วิทยาศาสตร์',text:'วงจรอนุกรมมีกระแสไฟฟ้าอย่างไร?',choices:['เท่ากันทุกจุด','มากสุดก่อนตัวต้านทาน','เป็นศูนย์เสมอ','แตกต่างทุกจุด'],answer:0,explanation:'วงจรอนุกรมมีทางไหลของกระแสเพียงทางเดียว'}
+];
+export function normalizeLesson(value={}){
+ const integer=(n,min,max,fallback)=>{if(n===undefined)return fallback;if(!Number.isInteger(n)||n<min||n>max)throw Object.assign(Error('ตั้งค่าต้องเป็นจำนวนเต็มในช่วง '+min+'–'+max),{status:400});return n};
+ const lesson={enabled:value.enabled===true,durationMinutes:integer(value.durationMinutes,5,60,20),questionSeconds:integer(value.questionSeconds,10,180,45),ammoReward:integer(value.ammoReward,5,120,30),itemReward:['med','armor','wall'].includes(value.itemReward)?value.itemReward:'med'};
+ const list=value.questions??SAMPLE_QUESTIONS;if(!Array.isArray(list)||!list.length||list.length>40)throw learningError('ใช้คำถาม 1–40 ข้อ');
+ lesson.questions=list.map((q,i)=>{if(!q||typeof q.text!=='string'||!q.text.trim()||q.text.length>300||!Array.isArray(q.choices)||q.choices.length!==4||q.choices.some(c=>typeof c!=='string'||!c.trim()||c.length>120)||!Number.isInteger(q.answer)||q.answer<0||q.answer>3)throw learningError('ตรวจคำถามและตัวเลือก 4 ข้อ พร้อมเฉลย');return{id:'q'+(i+1),subject:typeof q.subject==='string'?q.subject.slice(0,40):'ทั่วไป',text:q.text.trim(),choices:q.choices.map(c=>c.trim()),answer:q.answer,explanation:typeof q.explanation==='string'?q.explanation.slice(0,300):''}});return lesson;
+}
+export function publicLesson(lesson){if(!lesson)return null;const{questions,...settings}=lesson;return{...settings,questionCount:questions.length}}
+export function openQuestion(room,actor,now){if(!room.lesson?.enabled)return null;actor.learning??={cursor:0,correct:0,answered:0,startedAt:null,completed:[]};const p=actor.learning;if(p.cursor>=room.lesson.questions.length)return null;if(p.startedAt===null){p.startedAt=now;actor.studyUntil=room.match.time+room.lesson.questionSeconds;actor.studyDeadline=now+room.lesson.questionSeconds*1000;}const q=room.lesson.questions[p.cursor];return{id:q.id,subject:q.subject,text:q.text,choices:q.choices,expiresAt:p.startedAt+room.lesson.questionSeconds*1000}}
+export function answerQuestion(room,actor,input,now){
+ if(!room.lesson?.enabled||room.match?.state!=='playing'||actor.status!=='alive')throw learningError('ตอบได้ขณะเล่นและยังมีชีวิต');
+ const q=openQuestion(room,actor,now),p=actor.learning;if(!q||input.questionId!==q.id)throw learningError('คำถามนี้ตอบไปแล้วหรือไม่ตรงกับข้อปัจจุบัน');
+ if(!Number.isInteger(input.choice)||input.choice<0||input.choice>3)throw learningError('เลือกคำตอบ 1–4');
+ const source=room.lesson.questions[p.cursor],expired=now>=q.expiresAt,correct=!expired&&input.choice===source.answer;
+ p.answered++;if(correct){p.correct++;for(const w of actor.weapons)if(w.owned)w.reserve=Math.min(360,w.reserve+room.lesson.ammoReward);const kind=room.lesson.itemReward;if(kind==='med')actor.medkits=Math.min(5,actor.medkits+1);if(kind==='armor')actor.armor=Math.min(100,actor.armor+25);if(kind==='wall')actor.wallCharges=Math.min(5,actor.wallCharges+1)}
+ p.completed.push({id:q.id,choice:input.choice,correct,expired});p.cursor++;p.startedAt=null;actor.studyUntil=0;actor.studyDeadline=0;
+ return{questionId:q.id,correct,expired,answer:source.answer,explanation:source.explanation,reward:correct?{ammo:room.lesson.ammoReward,item:room.lesson.itemReward}:null,correctCount:p.correct,answered:p.answered};
+}

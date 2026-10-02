@@ -15,8 +15,8 @@ export const WEAPONS=[
  gun('m60','M60','MACHINE GUN',60,.12,27,110,3.3,.022,1,{recoil:.018,bloom:.18,description:'แม็กใหญ่ ยิงกดดันได้นาน เติมกระสุนช้า'})
 ];
 export const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-const phases=[{wait:40,end:80,r:70},{wait:110,end:145,r:38},{wait:175,end:205,r:12},{wait:230,end:260,r:0}];
-export function zoneAt(time){let from=108;for(let i=0;i<phases.length;i++){const p=phases[i];if(time<p.wait)return{radius:from,shrinking:false,remaining:p.wait-time,phase:i+1};if(time<p.end)return{radius:from+(p.r-from)*(time-p.wait)/(p.end-p.wait),shrinking:true,remaining:p.end-time,phase:i+1};from=p.r}return{radius:0,shrinking:false,remaining:0,phase:5}}
+// Longer exploration phase. Ring timing scales with the teacher's match duration.
+export function zoneAt(time,duration=1200,radius=260){const phases=[{wait:.30,end:.43,r:.72},{wait:.55,end:.66,r:.43},{wait:.77,end:.86,r:.20},{wait:.92,end:1,r:.05}];let from=radius;for(let i=0;i<phases.length;i++){const p=phases[i],wait=p.wait*duration,end=p.end*duration,to=p.r*radius;if(time<wait)return{radius:from,shrinking:false,remaining:wait-time,phase:i+1};if(time<end)return{radius:from+(to-from)*(time-wait)/(end-wait),shrinking:true,remaining:end-time,phase:i+1};from=to}return{radius:radius*.05,shrinking:false,remaining:0,phase:5}}
 export function canStand(x,z,solids,radius=.5){if(x*x+z*z>103*103)return false;return !solids.some(s=>Math.abs(x-s.x)<s.w+radius&&Math.abs(z-s.z)<s.d+radius)}
 export function moveSlide(pos,dx,dz,solids){const originalX=pos.x,originalZ=pos.z;if(canStand(pos.x+dx,pos.z+dz,solids)){pos.x+=dx;pos.z+=dz}else{if(canStand(pos.x+dx,pos.z,solids))pos.x+=dx;if(canStand(pos.x,pos.z+dz,solids))pos.z+=dz}return Math.hypot(pos.x-originalX,pos.z-originalZ)}
 export function applyDamage(hp,damage){return clamp(hp-Math.max(0,damage),0,100)}

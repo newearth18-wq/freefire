@@ -1,12 +1,10 @@
-import {STATIC_SOLIDS,groundHeight,rayBox} from './arena.mjs';
-const R=111,N=R*2+1,blocked=new Uint8Array(N*N);
+import {STATIC_SOLIDS,groundHeight,rayBox,ACTIVE_MAP} from './arena.mjs';
+let R,N,blocked;const grids=new Map();
 const key=(x,z)=>(z+R)*N+x+R;
-for(let z=-R;z<=R;z++)for(let x=-R;x<=R;x++)if(Math.hypot(x,z)>110)blocked[key(x,z)]=1;
-for(const s of STATIC_SOLIDS){
- for(let z=Math.max(-R,Math.ceil(s.z-s.d-.55));z<=Math.min(R,Math.floor(s.z+s.d+.55));z++)
- for(let x=Math.max(-R,Math.ceil(s.x-s.w-.55));x<=Math.min(R,Math.floor(s.x+s.w+.55));x++){
-  const feet=groundHeight(x,z)+.05;if(feet+2>s.y+.05&&feet<=s.y+s.h-.05)blocked[key(x,z)]=1;
- }
+function ensureGrid(){if(grids.has(ACTIVE_MAP.id)){({R,N,blocked}=grids.get(ACTIVE_MAP.id));return}R=ACTIVE_MAP.playRadius-1;N=R*2+1;blocked=new Uint8Array(N*N);
+ for(let z=-R;z<=R;z++)for(let x=-R;x<=R;x++)if(Math.hypot(x,z)>R-1)blocked[key(x,z)]=1;
+ for(const s of STATIC_SOLIDS)for(let z=Math.max(-R,Math.ceil(s.z-s.d-.55));z<=Math.min(R,Math.floor(s.z+s.d+.55));z++)for(let x=Math.max(-R,Math.ceil(s.x-s.w-.55));x<=Math.min(R,Math.floor(s.x+s.w+.55));x++){const feet=groundHeight(x,z)+.05;if(feet+2>s.y+.05&&feet<=s.y+s.h-.05)blocked[key(x,z)]=1}
+ grids.set(ACTIVE_MAP.id,{R,N,blocked});
 }
 function nearest(x,z){x=Math.max(-R,Math.min(R,Math.round(x)));z=Math.max(-R,Math.min(R,Math.round(z)));for(let r=0;r<=6;r++)for(let dz=-r;dz<=r;dz++)for(let dx=-r;dx<=r;dx++){if(Math.max(Math.abs(dx),Math.abs(dz))!==r)continue;const a=x+dx,b=z+dz;if(Math.abs(a)<=R&&Math.abs(b)<=R&&!blocked[key(a,b)])return{x:a,z:b}}return null}
 // Check a swept player footprint, including temporary walls. Roofs and lintels
@@ -17,7 +15,7 @@ class Heap{
  push(value){const a=this.values;a.push(value);let i=a.length-1;while(i){const p=(i-1)>>1;if(a[p].f<=value.f)break;a[i]=a[p];i=p}a[i]=value}
  pop(){const a=this.values,first=a[0],last=a.pop();if(a.length){let i=0;while(i*2+1<a.length){let c=i*2+1;if(c+1<a.length&&a[c+1].f<a[c].f)c++;if(a[c].f>=last.f)break;a[i]=a[c];i=c}a[i]=last}return first}
 }
-export function findRoute(a,b,solids=STATIC_SOLIDS){
+export function findRoute(a,b,solids=STATIC_SOLIDS){ensureGrid();
  if(clearRoute(a,b,solids))return[{x:b.x,z:b.z}];const start=nearest(a.x,a.z),end=nearest(b.x,b.z);if(!start||!end)return[];
  const costs=new Map(),parents=new Map(),heap=new Heap(),startKey=key(start.x,start.z),endKey=key(end.x,end.z);costs.set(startKey,0);heap.push({...start,id:startKey,g:0,f:Math.hypot(end.x-start.x,end.z-start.z)});
  const dynamic=solids.filter(s=>s.wall);const occupied=(x,z)=>blocked[key(x,z)]||dynamic.some(s=>Math.abs(x-s.x)<s.w+.55&&Math.abs(z-s.z)<s.d+.55);
