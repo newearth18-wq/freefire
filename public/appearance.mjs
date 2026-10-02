@@ -1,8 +1,8 @@
 // Appearance is shared by the lobby, simulation and room server.
 export const CHARACTERS=[
- {id:'ranger',name:'อาร์ค',tag:'RANGER',model:'operative',description:'แจ็กเก็ตขาวแต่งทอง · ผมเงินและหน้ากาก'},
+ {id:'ranger',name:'อาร์ค',tag:'RANGER',model:'operative',description:'แจ็กเก็ตขาวแต่งทอง · ผมเงิน'},
  {id:'nova',name:'โนวา',tag:'NOVA',model:'nova',description:'สตรีทสีม่วง · ลายทองและแถบนีออน'},
- {id:'ghost',name:'โกสต์',tag:'GHOST',model:'ghost',description:'ฮู้ดดำ · หน้ากากและขอบเทอร์ควอยซ์'}
+ {id:'ghost',name:'โกสต์',tag:'GHOST',model:'ghost',description:'ชุดลาดตระเวนดำ · หน้ากากและขอบเทอร์ควอยซ์'}
 ];
 export const SWATCHES=[
  {id:'teal',name:'ฟ้าเทอร์ควอยซ์',hex:0x237b86},

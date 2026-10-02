@@ -1,0 +1,20 @@
+[
+  {
+    "model": "operative",
+    "source": "Male",
+    "bodyTriangles": 8326,
+    "bytes": 1989488
+  },
+  {
+    "model": "nova",
+    "source": "Female",
+    "bodyTriangles": 8400,
+    "bytes": 1544608
+  },
+  {
+    "model": "ghost",
+    "source": "Male",
+    "bodyTriangles": 8326,
+    "bytes": 1471424
+  }
+]

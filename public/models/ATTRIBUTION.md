@@ -92,3 +92,10 @@ License: CC0 1.0 Universal; see UNIVERSAL-BASE-LICENSE.txt.
 Preparation: scripts/prepare-modern-faces.mjs; counts and fitting parameters: MODERN-FACES.json. The old original-file hashes above identify the original assets, not these modified GLBs.
 
 Reload support-hand motion and weapon anchors for free running are baked when loading the model. They retain the existing 62-bone rig and one combined skin draw call.
+
+
+## Smooth bodies (v9.1, October 2, 2026)
+
+The torso, arms, hands and trousers now use full-body geometry from the same CC0 Universal Base Characters Standard source listed above. Geometry is fitted offline to the existing neutral animation rig, including separate finger joints; clothing shells and original inner-shirt colors are authored for LAST ISLAND. Original modular heads/hair/shoes remain selectable. The loader merges clothing into one skinned draw call. Backpacks, straps, trims and all fourteen weapon silhouettes are original procedural LAST ISLAND geometry, with five PBR finish groups per weapon. No Free Fire models or textures are bundled.
+
+Preparation: `scripts/prepare-modern-bodies.mjs SOURCE_DIR FACE_BACKUP_DIR`; SOURCE_DIR contains the male/female .gltf and .bin files used by the face converter, and FACE_BACKUP_DIR preserves the v9 head-equipped input GLBs. The input set is recoverable from repository commit `10e0cea65dd7bb229190df6375d3b54b12602894`. The converter welds vertices and exports only the five used source clips; Reload is derived at load time. Counts: MODERN-BODIES.json. Inspect shipping model geometry with `scripts/inspect-avatars.mjs OUTPUT.json`; `scripts/render-asset-preview.py OUTPUT.json PREVIEW.png` is a CPU mesh preview, not a WebGL or browser screenshot.
