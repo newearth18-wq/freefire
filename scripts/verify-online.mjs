@@ -16,6 +16,8 @@ try{
  assert.equal((await call('join',{code:host.code,name:'Overflow',team:0})).status,409,'a squad has exactly five seats');
  assert.equal((await call('team',{...g,team:9})).body.selfTeam,9);assert.equal((await call('team',{...g,team:10})).status,400);
  const launched=await call('start',h);assert.equal(launched.status,200);assert.equal(launched.body.match.entities.length,50);assert.equal(launched.body.match.entities.filter(e=>e.human).length,5);assert.equal(launched.body.match.entities.filter(e=>e.team===9).length,5);assert.equal(launched.body.match.entities.find(e=>e.id===guest.id).team,9);assert.deepEqual(launched.body.match.entities.find(e=>e.id===guest.id).appearance,guestLook);
+ assert.equal(launched.body.lesson.enabled,true);assert.equal(launched.body.match.educational,true,'ordinary rooms include the lesson by default');assert.equal(launched.body.match.entities.find(e=>e.id===host.id).weapons.length,14);assert.ok(launched.body.match.entities.filter(e=>e.id!==host.id).every(e=>!Object.hasOwn(e,'weapons')),'remote inventory is excluded from playback packets');assert.equal(Object.hasOwn(launched.body.match,'navBudget'),false);
+ await mutate(host.code,r=>{r.startedAt=Date.now()-8000;r.lastTick=Date.now()-8000});const landed=(await call('poll',h)).body.match;assert.equal(landed.drop,0,'an infrequent client poll cannot stretch the parachute clock');assert.ok(landed.time>=2);assert.ok(landed.entities.every(e=>Number.isFinite(e.y)));
  assert.equal((await call('start',h)).status,409);assert.equal((await call('team',{...g,team:1})).status,409);assert.equal((await call('appearance',{...g,appearance:look})).status,409);
  assert.equal((await call('join',g)).body.id,guest.id);
  await mutate(host.code,r=>{r.match.drop=0;r.lastTick=Date.now()-250});
@@ -31,6 +33,7 @@ try{
  const queue=(await call('matchmake',{mode:'solo',name:'Queue host'})).body,other=(await call('matchmake',{mode:'solo',name:'Queue friend'})).body;
  assert.equal(queue.code,other.code);assert.equal(queue.queue,true);assert.equal(queue.teamSize,1);assert.equal((await call('team',{...auth(queue),team:1})).status,400);
  await mutate(queue.code,r=>r.startsAt=Date.now()-1);const fill=(await call('poll',auth(queue))).body.match;assert.equal(fill.entities.length,50);assert.equal(fill.entities.filter(e=>e.human).length,2);assert.equal(new Set(fill.entities.map(e=>e.team)).size,50);
+ assert.equal(fill.educational,true,'public matchmaking includes sample questions');const disabled=(await call('create',{mode:'solo',lesson:{enabled:false}})).body;assert.equal(disabled.lesson.enabled,false);assert.equal((await call('start',auth(disabled))).body.match.educational,false,'teacher can explicitly disable the lesson');
  const next=(await call('matchmake',{mode:'solo'})).body;assert.notEqual(next.code,queue.code);
  const publicClients=await Promise.all(Array.from({length:50},(_,i)=>call('matchmake',{mode:'squad',name:'Public '+i})));
  assert.ok(publicClients.every(r=>[200,201].includes(r.status)));assert.equal(new Set(publicClients.map(r=>r.body.code)).size,1,'concurrent public matchmaking uses one waiting room');
@@ -46,7 +49,7 @@ try{
   await mutate(owner.code,r=>{r.match.drop=0;r.lastTick=Date.now()-200});
   const polls=await Promise.all(clients.map(p=>call('poll',{...auth(p),controls:{actions:[{seq:1,type:'crouch'}]}})));assert.ok(polls.every(r=>r.status===200));
   await mutate(owner.code,r=>r.lastTick=Date.now()-200);const synchronized=(await call('poll',{...auth(owner),controls:{actions:[{seq:1,type:'crouch'}]}})).body;
-  assert.equal(synchronized.match.entities.filter(e=>e.crouch).length,50);assert.ok(JSON.stringify(synchronized).length<120000);
+  assert.equal(synchronized.match.entities.filter(e=>e.crouch).length,50);const bytes=Buffer.byteLength(JSON.stringify(synchronized));assert.ok(bytes<120000);console.log(mode+': 50-player snapshot '+bytes+' bytes; one full inventory');
   console.log(mode+': 50 concurrent joins and control packets passed in '+Math.round(performance.now()-start)+' ms locally');
  }
  const armoryOwner=(await call('create',{name:'Armory',mode:'solo'})).body;await call('start',auth(armoryOwner));
