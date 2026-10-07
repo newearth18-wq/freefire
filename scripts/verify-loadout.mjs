@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import * as T from '../public/vendor/three.module.js';
 import {GLTFLoader} from '../public/vendor/addons/loaders/GLTFLoader.js';
-import {prepareCharacter,makeAvatar,animateAvatar,disposeAvatar} from '../public/visuals.mjs';
+import {prepareCharacter,makeAvatar,animateAvatar,setAvatarDetail,disposeAvatar} from '../public/visuals.mjs';
 import {CHARACTERS,characterDefault,normalizeAppearance} from '../public/appearance.mjs';
 import {inviteLink,readInvitation} from '../public/invitations.mjs';
 import {makeMatch,view} from '../public/engine.mjs';
@@ -18,7 +18,7 @@ for(const c of CHARACTERS){const bytes=await readFile(new URL('../public/models/
 const point=new T.Vector3();let combinations=0;
 for(const c of CHARACTERS)for(let upper=0;upper<3;upper++)for(let lower=0;lower<3;lower++)for(let feet=0;feet<3;feet++){
  const avatar=makeAvatar(0,{...characterDefault(c.id),upper,lower,feet,backpack:false});let body;avatar.userData.model.traverse(o=>{if(o.isSkinnedMesh){assert.equal(body,undefined,'one merged body per actor');body=o}});
- for(const speed of[0,5.4]){animateAvatar(avatar,{status:'alive',speed,crouch:false},.5);avatar.updateMatrixWorld(true);for(let i=0;i<body.geometry.attributes.position.count;i+=47){body.getVertexPosition(i,point);assert.ok(Number.isFinite(point.x)&&Math.abs(point.x)<1.5&&point.y>-.3&&point.y<2.7&&Math.abs(point.z)<1.5,'modular outfits retain metre scale and valid animated skinning')}}disposeAvatar(avatar);combinations++;
+ for(const distance of[0,24]){setAvatarDetail(avatar,distance);for(const speed of[0,5.4]){animateAvatar(avatar,{status:'alive',speed,crouch:false},.5);avatar.updateMatrixWorld(true);for(let i=0;i<body.geometry.attributes.position.count;i+=47){body.getVertexPosition(i,point);assert.ok(Number.isFinite(point.x)&&Math.abs(point.x)<1.5&&point.y>-.3&&point.y<2.7&&Math.abs(point.z)<1.5,'both detailed and distant outfits retain metre scale and valid animated skinning')}const weights=body.geometry.attributes.skinWeight;for(let i=0;i<weights.count;i+=37)assert.ok(Math.abs(weights.getX(i)+weights.getY(i)+weights.getZ(i)+weights.getW(i)-1)<.001,'simplified joint weights stay normalized')}}disposeAvatar(avatar);combinations++;
 }
 const look=normalizeAppearance({...characterDefault('nova'),hair:3,backpack:false}),match=makeMatch({humans:[{id:'you',name:'Test',appearance:look}]});assert.deepEqual(view(match,'you').appearance,look,'solo uses the selected appearance');
 console.log(`Loadout tests passed: ${combinations} animated clothing combinations, solo appearance, QR image decoding/rotation/inversion and safe invitation parsing`);

@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import * as T from '../public/vendor/three.module.js';
 import {GLTFLoader} from '../public/vendor/addons/loaders/GLTFLoader.js';
-import {prepareCharacter,makeAvatar,animateAvatar,setAvatarWeapon,disposeAvatar} from '../public/visuals.mjs';
+import {prepareCharacter,makeAvatar,animateAvatar,setAvatarWeapon,setAvatarDetail,disposeAvatar} from '../public/visuals.mjs';
 import {WEAPONS} from '../public/rules.mjs';
 import {applyEnvironment} from '../public/lighting.mjs';
 const studio=new T.Scene(),island=new T.Scene(),copy=new T.Scene();const studioTexture=applyEnvironment(studio,true);assert.equal(applyEnvironment(copy,true),studioTexture,'studio reflections reuse one texture');assert.notEqual(applyEnvironment(island),studioTexture,'game lighting uses its own sky palette');assert.equal(studioTexture.mapping,T.EquirectangularReflectionMapping);assert.equal(studioTexture.image.data.length,128*64*4);
@@ -16,10 +16,17 @@ const cached=avatars[0],traverse=cached.userData.model.traverse;
 cached.userData.model.traverse=()=>{throw Error('Animation must reuse cached bones rather than traversing the character each frame')};
 animateAvatar(cached,{status:'alive',speed:0,crouch:false,pitch:0},1/60);
 cached.userData.model.traverse=traverse;assert.equal(cached.userData.bones.length,62);
-for(let i=0;i<WEAPONS.length;i++){setAvatarWeapon(avatars[0],i);setAvatarWeapon(avatars[1],i);const gun=avatars[0].userData.gun;assert.ok(gun.children.length>0&&gun.children.length<=5,'weapon parts remain batched');assert.equal(gun.children[0].geometry,avatars[1].userData.gun.children[0].geometry,'avatars share cached weapon geometry');assert.ok(new T.Box3().setFromObject(gun).getSize(new T.Vector3()).length()>0);
- const hash=createHash('sha256');let triangles=0;for(const mesh of gun.children){const p=mesh.geometry.attributes.position;triangles+=p.count/3;assert.ok(p.array.every(Number.isFinite),'weapon vertices remain finite');hash.update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength));assert.ok(mesh.material.roughness>=.2&&mesh.material.roughness<=.8,'the finish uses bounded PBR values')}assert.ok(triangles<5000,'each weapon stays below 5k triangles');silhouettes.add(hash.digest('hex'))}
+for(let i=0;i<WEAPONS.length;i++){setAvatarWeapon(avatars[0],i);setAvatarWeapon(avatars[1],i);const gun=avatars[0].userData.gun;assert.ok(gun.children.filter(m=>m.visible).length>0&&gun.children.filter(m=>m.visible).length<=5,'visible weapon parts remain batched');assert.equal(gun.children[0].geometry,avatars[1].userData.gun.children[0].geometry,'avatars share cached weapon geometry');assert.equal(avatars[0].userData.lowGun.geometry,avatars[1].userData.lowGun.geometry,'distant weapons also share geometry');assert.ok(new T.Box3().setFromObject(gun).getSize(new T.Vector3()).length()>0);
+ const hash=createHash('sha256');let triangles=0;for(const mesh of gun.children.filter(m=>m.visible)){const p=mesh.geometry.attributes.position;triangles+=p.count/3;assert.ok(p.array.every(Number.isFinite),'weapon vertices remain finite');hash.update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength));assert.ok(mesh.material.roughness>=.2&&mesh.material.roughness<=.8,'the finish uses bounded PBR values')}assert.ok(triangles<5000,'each rendered weapon stays below 5k triangles');silhouettes.add(hash.digest('hex'))}
 assert.equal(silhouettes.size,WEAPONS.length,'all fourteen weapons have different geometry, including within a family');
 avatars.forEach(a=>setAvatarWeapon(a,0));
+const detailed=avatars[0].userData.outfitEntry.geometry,distant=avatars[0].userData.distantEntry.geometry;
+assert.ok(distant.index.count<detailed.index.count*.35,'distance detail reduces skin triangles by at least 65%');
+setAvatarDetail(avatars[0],21);assert.equal(avatars[0].userData.body.geometry,distant);assert.equal(avatars[0].userData.gun.children.filter(m=>m.visible).length,1,'distant gun renders one combined finish');
+setAvatarDetail(avatars[0],18);assert.equal(avatars[0].userData.body.geometry,distant,'hysteresis avoids oscillation near the boundary');
+setAvatarWeapon(avatars[0],1);assert.equal(avatars[0].userData.gun.children.filter(m=>m.visible).length,1,'weapon swaps preserve distant detail');
+setAvatarDetail(avatars[0],15);assert.equal(avatars[0].userData.body.geometry,detailed);assert.ok(avatars[0].userData.fullGun.every(m=>m.visible));
+setAvatarDetail(avatars[0],100,true);assert.equal(avatars[0].userData.body.geometry,detailed,'local player always retains full geometry');setAvatarWeapon(avatars[0],0);
 const hidden=avatars[0],bone=hidden.userData.model.getObjectByName('WristR'),update=bone.updateMatrixWorld;
 let visits=0;bone.updateMatrixWorld=function(force){visits++;return update.call(this,force)};
 hidden.visible=false;hidden.updateMatrixWorld(true);assert.equal(visits,0,'hidden rigs skip skeleton traversal');
