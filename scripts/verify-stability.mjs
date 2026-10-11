@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {runInNewContext} from 'node:vm';
 import {InputHistory,snapshotLocalTime,newerMotion,predictionFresh} from '../public/input-history.mjs';
 import {VehiclePredictor,driveVehicle} from '../public/vehicles.mjs';
 import {MotionPredictor} from '../public/motion.mjs';
-import {makeMatch,tick,setInput,advance} from '../public/engine.mjs';
+import {makeMatch,tick,setInput,advance,colliders} from '../public/engine.mjs';
 import {activateMap,STATIC_SOLIDS,rayBox,groundHeight,canStand} from '../public/arena.mjs';
 import {findRoute,clearRoute} from '../public/navigation.mjs';
 
@@ -26,6 +27,12 @@ assert.equal(predictionFresh(1001,100),false);assert.equal(predictionFresh(1501,
 const car={id:0,x:0,z:0,y:0,yaw:0,speed:0,seats:['you']},carInput={mz:-1},carHistory=new InputHistory();carHistory.record(0,carInput);const slowCar=new VehiclePredictor(),fastCar=new VehiclePredictor();slowCar.receive(car,{},0,[]);fastCar.receive(car,{},0,[]);
 for(let n=0;n<10;n++)slowCar.step(car,carInput,.1,[]);for(let n=0;n<60;n++)fastCar.step(car,carInput,1/60,[]);assert.ok(Math.abs(slowCar.vehicle.z-fastCar.vehicle.z)<1e-6,'low frame rates cannot halve predicted car speed');
 const echoed=structuredClone(car);for(let n=0;n<30;n++)driveVehicle(echoed,carInput,1/60,[]);fastCar.receiveHistory(echoed,carHistory,500,1000,[]);assert.ok(Math.abs(fastCar.error.z)<1e-6,'vehicle reconciliation replays actual controls to the present');
+// Execute the actual client handlers in a component fixture. Mount/dismount
+// events are also delivered in offline practice, without a network snapshot.
+const client=await readFile(new URL('../public/client.mjs',import.meta.url),'utf8'),extract=name=>{const start=client.indexOf('function '+name+'('),end=client.indexOf('\nfunction ',start+1);return client.slice(start,end)};
+const eventsMatch=makeMatch(),me=eventsMatch.entities[0],notices=[];eventsMatch.drop=0;me.vehicleId=0;eventsMatch.vehicles[0].seats=[me.id];eventsMatch.events=[{seq:1,type:'vehicle',id:me.id,vehicleId:0}];
+const context={match:eventsMatch,self:()=>me,selfId:me.id,lastEvent:0,yaw:0,vehiclePrediction:new VehiclePredictor(),inputHistory:new InputHistory(),snapshotLocalTime,colliders,controls:()=>({}),resetInput(){},toast:text=>notices.push(text),sound:{play(){}}};
+runInNewContext(extract('receiveVehicle')+'\n'+extract('processEvents')+'\nprocessEvents();processEvents();',context,{timeout:1000});assert.equal(notices.length,1,'mount events run once without throwing or stopping the frame loop');assert.ok(context.vehiclePrediction.vehicle);
 for(let n=0;n<10000;n++)history.record(n*16,moving);assert.ok(history.samples.length<=240,'long matches retain bounded control history');
 const p=new MotionPredictor(),wall=[{x:1,z:0,w:.1,d:2,y:0,h:3}];p.reset({...actor,x:0});p.receive({...actor,x:0},moving,.75,wall);assert.ok(p.error.x<.46,'high latency prediction cannot tunnel through a thin wall');
 const delayed=makeMatch();delayed.drop=0;delayed.loot=[];for(const e of delayed.entities)e.human=true;
