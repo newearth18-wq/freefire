@@ -3,10 +3,10 @@ let R,N,blocked;const grids=new Map();
 const key=(x,z)=>(z+R)*N+x+R;
 function ensureGrid(){if(grids.has(ACTIVE_MAP.id)){({R,N,blocked}=grids.get(ACTIVE_MAP.id));return}R=ACTIVE_MAP.playRadius-1;N=R*2+1;blocked=new Uint8Array(N*N);
  for(let z=-R;z<=R;z++)for(let x=-R;x<=R;x++)if(Math.hypot(x,z)>R-1)blocked[key(x,z)]=1;
- for(const s of STATIC_SOLIDS)for(let z=Math.max(-R,Math.ceil(s.z-s.d-.55));z<=Math.min(R,Math.floor(s.z+s.d+.55));z++)for(let x=Math.max(-R,Math.ceil(s.x-s.w-.55));x<=Math.min(R,Math.floor(s.x+s.w+.55));x++){const feet=groundHeight(x,z)+.05;if(feet+2>s.y+.05&&feet<=s.y+s.h-.05)blocked[key(x,z)]=1}
+ for(const s of STATIC_SOLIDS.filter(s=>s.type!=='stairs'))for(let z=Math.max(-R,Math.ceil(s.z-s.d-.55));z<=Math.min(R,Math.floor(s.z+s.d+.55));z++)for(let x=Math.max(-R,Math.ceil(s.x-s.w-.55));x<=Math.min(R,Math.floor(s.x+s.w+.55));x++){const feet=groundHeight(x,z)+.05;if(feet+2>s.y+.05&&feet<=s.y+s.h-.05)blocked[key(x,z)]=1}
  grids.set(ACTIVE_MAP.id,{R,N,blocked});
 }
-function nearest(x,z){x=Math.max(-R,Math.min(R,Math.round(x)));z=Math.max(-R,Math.min(R,Math.round(z)));for(let r=0;r<=6;r++)for(let dz=-r;dz<=r;dz++)for(let dx=-r;dx<=r;dx++){if(Math.max(Math.abs(dx),Math.abs(dz))!==r)continue;const a=x+dx,b=z+dz;if(Math.abs(a)<=R&&Math.abs(b)<=R&&!blocked[key(a,b)])return{x:a,z:b}}return null}
+function nearest(x,z){const ox=x,oz=z;x=Math.max(-R,Math.min(R,Math.round(x)));z=Math.max(-R,Math.min(R,Math.round(z)));for(let r=0;r<=6;r++){let best=null,distance=Infinity;for(let dz=-r;dz<=r;dz++)for(let dx=-r;dx<=r;dx++){if(Math.max(Math.abs(dx),Math.abs(dz))!==r)continue;const a=x+dx,b=z+dz,d=(a-ox)**2+(b-oz)**2;if(Math.abs(a)<=R&&Math.abs(b)<=R&&!blocked[key(a,b)]&&d<distance){best={x:a,z:b};distance=d}}if(best)return best}return null}
 // Check a swept player footprint, including temporary walls. Roofs and lintels
 // above the player's head do not close a navigable doorway.
 export function clearRoute(a,b,solids=STATIC_SOLIDS){const length=Math.hypot(b.x-a.x,b.z-a.z);if(length<.01)return true;const direction={x:(b.x-a.x)/length,y:0,z:(b.z-a.z)/length},origin={x:a.x,y:groundHeight(a.x,a.z)+1,z:a.z};for(const s of solids){if(origin.y<s.y||origin.y>s.y+s.h)continue;if(rayBox(origin,direction,{...s,w:s.w+.49,d:s.d+.49},length)!==null)return false}return true}

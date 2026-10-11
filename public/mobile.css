@@ -32,3 +32,18 @@ body.touch .lobby-deploy.deploy{left:12px;right:12px;bottom:var(--mobile-bottom)
 .mobile-menu[data-context=lobby] #pause{display:none}
 body.touch .mobile-menu-card #med-label{display:block;font-size:13px;color:#c3dde5}
 @media(max-width:360px){body.touch #minimap{width:72px;height:72px}body.touch #hud .zone-info,body.touch #match-clock{left:calc(var(--mobile-left) + 82px);right:calc(var(--mobile-right) + 142px);font-size:10px}body.touch #quiz-open{width:110px}body.touch .player-status{width:calc(100% - 232px)}body.touch .touch-actions #crouch-touch,body.touch .touch-actions #heal-touch{right:48px}}
+
+/* Contextual driving controls reuse the firing area and leave the quiz accessible. */
+#vehicle-enter{position:absolute;left:50%;bottom:calc(24% + 60px);transform:translateX(-50%);z-index:8;pointer-events:auto;min-height:48px;padding:8px 18px;background:#245164ed;border:1px solid #a8d6d9;border-radius:10px;color:#f4ffff;font-size:16px;touch-action:manipulation}
+#vehicle-speed{position:absolute;right:24px;top:160px;background:#0a293be8;padding:10px 16px;border-radius:9px;color:#e1fbfa;font-size:18px;pointer-events:none}
+#vehicle-brake{display:none;position:absolute;right:24px;bottom:130px;z-index:8;width:70px;height:70px;pointer-events:auto;background:#a06743bb;border:2px solid #f5d5ae;border-radius:50%;font-size:16px;color:white;touch-action:none}
+body.driving #vehicle-brake{display:block}body.driving .equipment,body.driving #pickup-weapon,body.driving #nearby-toggle,body.driving #scope-touch,body.driving #fire-touch,body.driving #jump-touch,body.driving #crouch-touch,body.driving #reload-touch,body.driving #heal-touch,body.driving #sprint-touch,body.driving #crosshair{display:none}
+body.touch #vehicle-enter{bottom:calc(var(--mobile-bottom) + 242px);font-size:13px;min-height:44px;max-width:160px}
+body.touch.driving #vehicle-enter{bottom:calc(var(--mobile-bottom) + 110px);width:108px}
+body.touch #vehicle-speed{right:var(--mobile-right);top:66px;padding:8px;font-size:13px}
+body.touch #vehicle-brake{right:var(--mobile-right);bottom:calc(var(--mobile-bottom) + 104px);width:64px;height:64px;font-size:14px}
+
+/* Three compact loadout buttons remain directly accessible during foot play. */
+body.touch .equipment{pointer-events:auto}body.touch .equipment .weapon-slots{display:flex;gap:4px;margin:7px 0 0}body.touch .equipment .weapon-slots button{flex:1;min-width:0;min-height:44px;font-size:10px;padding:4px 1px;line-height:1.3;border-radius:6px;pointer-events:auto;touch-action:manipulation}
+
+#hud #minimap{pointer-events:auto;cursor:pointer;z-index:4;touch-action:manipulation}#hud #minimap:focus-visible{outline:2px solid #f6d386;outline-offset:3px}

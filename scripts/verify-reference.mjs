@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import * as T from '../public/vendor/three.module.js';
+import {MAPS} from '../public/maps.mjs';
+import {activateMap,ACTIVE_MAP,BUILDINGS,STATIC_SOLIDS,ROAD_SEGMENTS,groundHeight,walkHeight,moveSlide,canStand,lineClear} from '../public/arena.mjs';
+import {makeMatch,act,setInput,tick,colliders,damage} from '../public/engine.mjs';
+import {createVehicles,driveVehicle,toggleVehicle,leaveVehicle,nearestVehicle,VehiclePredictor,seatActor,MAX_DRIVE_SPEED} from '../public/vehicles.mjs';
+import {makeVehicle,updateVehicle} from '../public/vehicle-models.mjs';
+import {nearbyWeaponItems} from '../public/loot-pickup.mjs';
+import {MotionPredictor} from '../public/motion.mjs';
+for(const map of MAPS){
+ activateMap(map.id);assert.ok(map.radius>=500);assert.ok(BUILDINGS.length>=40,'expanded maps contain several populated districts');assert.ok(ROAD_SEGMENTS.length>=6);
+ const b=BUILDINGS.find(b=>b.floors===2),base=groundHeight(b.x,b.z),stairs=STATIC_SOLIDS.find(s=>s.type==='stairs'&&s.building===b.id),p={x:stairs.x,z:stairs.z-stairs.d+.08,y:base,jump:0};
+ for(let n=0;n<Math.ceil(stairs.d*2/.08);n++)moveSlide(p,0,.08,STATIC_SOLIDS);
+ assert.ok(Math.abs(p.y-base-3.4)<.12,'player can climb to the landing');
+ for(let n=0;n<25;n++)moveSlide(p,-.08,0,STATIC_SOLIDS);assert.ok(Math.abs(p.y-base-3.4)<.01,'upper floor supports walking away from the stairs');
+ assert.equal(walkHeight(p.x,p.z,base),base,'the upper floor does not lift a ground-floor actor through a ceiling');
+ assert.ok(lineClear({x:b.x+b.w/2-1,y:base+1.8,z:b.z},{x:b.x+b.w/2+1,y:base+1.8,z:b.z}),'window opening passes the aiming ray');
+ assert.equal(lineClear({x:b.x+b.w/2-1,y:base+.5,z:b.z},{x:b.x+b.w/2+1,y:base+.5,z:b.z}),false,'sill remains solid');
+ assert.ok(lineClear({x:b.x+b.w/2-1,y:base+3.4+1.8,z:b.z},{x:b.x+b.w/2+1,y:base+3.4+1.8,z:b.z}),'upper storey also has real windows');
+ const vehicles=createVehicles();assert.ok(vehicles.length>=6);assert.ok(vehicles.every(v=>canStand(v.x,v.z,STATIC_SOLIDS,1.45,v.y)),'cars spawn outside structures');
+ const car=vehicles[0],model=makeVehicle(car),clone=makeVehicle(car);assert.equal(model.children[0].geometry,clone.children[0].geometry,'vehicle geometry is shared');let count=0,triangles=0;model.traverse(o=>{if(o.isMesh){count++;triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3}});assert.equal(count,5);assert.ok(triangles<4000,'each vehicle has a bounded rendering cost');updateVehicle(model,{...car,speed:15,steer:.7},.04);assert.ok(model.userData.wheels.some(w=>w.rotation.x!==0));
+ const copy=structuredClone(car),start={...copy};for(let n=0;n<100;n++)driveVehicle(copy,{mz:-1},.04,STATIC_SOLIDS);assert.ok(Math.hypot(copy.x-start.x,copy.z-start.z)>15,'the parked vehicle can enter the graded road and drive');assert.ok(copy.speed<=MAX_DRIVE_SPEED);
+ console.log(map.name+': '+BUILDINGS.length+' buildings, '+vehicles.length+' cars, rover '+triangles+' triangles');
+}
+activateMap('dawn');
+const m=makeMatch({mode:'squad',humans:Array.from({length:6},(_,i)=>({id:'human-'+i,name:'Student '+i}))});m.drop=0;m.loot=[];const car=m.vehicles[0],team=m.entities.filter(e=>e.team===0);for(const e of team)Object.assign(e,{x:car.x+2.5,z:car.z,y:car.y});
+assert.ok(nearestVehicle(m,team[0]));for(const e of team)assert.equal(toggleVehicle(m,e,car.id,colliders(m)),true,'five teammates can share the same car');assert.equal(car.seats.length,5);
+const outsider=m.entities.find(e=>e.team===1);Object.assign(outsider,{x:car.x+2.5,z:car.z,y:car.y});assert.equal(toggleVehicle(m,outsider,car.id,colliders(m)),false,'other teams cannot hijack an occupied car');
+const driver=team[0],ammo=driver.weapons[driver.weapon].ammo;act(m,driver,'fire');assert.equal(driver.weapons[driver.weapon].ammo,ammo,'driving controls cannot accidentally fire');
+for(let n=0;n<50;n++){setInput(m,driver.id,{mz:-1});tick(m,.04)}assert.ok(car.speed>5);assert.ok(team.every(e=>e.vehicleId===car.id&&Math.abs(e.y-car.y-.56)<.001),'passenger positions follow the authoritative car');
+for(let n=0;n<30;n++){setInput(m,driver.id,{brake:true});tick(m,.04)}assert.ok(Math.abs(car.speed)<.01,'brake holds the vehicle at rest');
+const prediction=new VehiclePredictor();prediction.receive(car,{mz:-1},0,colliders(m).filter(s=>s.vehicle!==car.id));const shown=prediction.step(car,{mz:-1},.04,colliders(m).filter(s=>s.vehicle!==car.id));assert.ok(Number.isFinite(shown.x)&&shown.speed>0);prediction.step(car,{},.04,colliders(m),false);assert.equal(prediction.vehicle.x,car.x,'pausing discards speculative movement');
+const oldSeats=car.seats.length;setInput(m,driver.id,{actions:[{seq:1,type:'vehicle'}]});setInput(m,driver.id,{actions:[{seq:1,type:'vehicle'}]});assert.equal(car.seats.length,oldSeats-1,'replayed exit action does not board again');assert.equal(driver.vehicleId,undefined);assert.ok(canStand(driver.x,driver.z,colliders(m),.45,driver.y),'exit stays clear of the car and walls');
+const box={x:0,z:-4,w:5,d:.2,y:0,h:4},swept={x:0,z:0,y:0,yaw:0,speed:23,seats:[]};for(let n=0;n<100;n++)driveVehicle(swept,{mz:-1},.05,[box]);assert.ok(swept.z>-4+1.45,'fast vehicles cannot tunnel through walls');
+const before=driver.vehicleId;Object.assign(driver,{x:0,z:0,y:0});assert.equal(toggleVehicle(m,driver,car.id,colliders(m)),false,'remote boarding is rejected');assert.equal(driver.vehicleId,before);
+const b=BUILDINGS.find(b=>b.floors===2),y=groundHeight(b.x,b.z);Object.assign(driver,{x:b.x-1,z:b.z,y:y+3.4,jump:0});m.loot=[{id:99,x:driver.x,z:driver.z,y,type:'weapon',weapon:2}];assert.equal(nearbyWeaponItems(m,driver,colliders(m)).length,0,'no weapon pickup through the floor');m.loot[0].y=y+3.4;assert.equal(nearbyWeaponItems(m,driver,colliders(m)).length,1,'upstairs weapons can be collected from the same floor');
+const footPrediction=new MotionPredictor();footPrediction.reset(driver);const position=footPrediction.step(driver,{mx:.2,mz:0,yaw:0},.04,colliders(m));assert.ok(Math.abs(position.y-y-3.4)<.01,'online movement prediction also keeps the upper floor');
+damage(m,team[1],1000,outsider);assert.equal(team[1].vehicleId,undefined,'a downed passenger leaves their seat');assert.ok(!car.seats.includes(team[1].id));
+const snapshots=structuredClone(m);assert.equal(snapshots.vehicles.length,m.vehicles.length,'vehicles survive durable snapshot serialization');
+const rescue=makeMatch({mode:'squad'});rescue.drop=0;rescue.loot=[];rescue.entities=[rescue.entities[0],rescue.entities[1],rescue.entities[5]];const [fallen,helper,observer]=rescue.entities;Object.assign(fallen,{x:b.x-1,z:b.z,y:y+3.4,status:'down',hp:0,bleed:30,jump:0,floorY:y+3.4});Object.assign(helper,{x:b.x,z:b.z-b.d/2-1,y,human:false,jump:0});Object.assign(observer,{x:350,z:0,y:groundHeight(350,0),human:true});for(let n=0;n<650&&fallen.status==='down';n++)tick(rescue,.04);assert.equal(fallen.status,'alive','a bot uses the staircase to revive an upstairs teammate');
+const jumping=makeMatch();jumping.drop=0;jumping.loot=[];for(const e of jumping.entities)e.human=true;const jumper=jumping.entities[0];Object.assign(jumper,{x:b.x-1,z:b.z,y,jump:0,vy:0});act(jumping,jumper,'jump');for(let n=0;n<60;n++){tick(jumping,.04);assert.ok(jumper.y+2.05<y+3.22,'jumping does not put the head through the upper floor')}const jumpPrediction=new MotionPredictor();jumpPrediction.reset(jumper);for(let n=0;n<60;n++){const shown=jumpPrediction.step(jumper,{actions:[{seq:1,type:'jump'}]},.04,colliders(jumping));assert.ok(shown.y+2.05<y+3.22,'presentation obeys the same ceiling')}
+console.log('Reference passed: expanded populated maps, two floors/stairs/windows, floor-safe pickup/prediction, five-seat authority, driving, braking, collision, exit/action replay and rendering budgets');

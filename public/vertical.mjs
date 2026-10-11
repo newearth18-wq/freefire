@@ -1,0 +1,2 @@
+import {STATIC_SOLIDS,nearbySolids} from './arena.mjs';
+export function limitJump(x,z,base,jump,vy,solids=STATIC_SOLIDS){let ceiling=Infinity;for(const s of nearbySolids(solids,x-.3,z-.3,x+.3,z+.3))if((s.type==='floor'||s.type==='roof')&&s.y>base+2&&Math.abs(x-s.x)<s.w+.3&&Math.abs(z-s.z)<s.d+.3)ceiling=Math.min(ceiling,s.y);const allowed=Math.max(0,ceiling-base-2.05-.03);return jump>allowed?{jump:allowed,vy:Math.min(0,vy)}:{jump,vy}}

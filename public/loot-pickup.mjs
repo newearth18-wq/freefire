@@ -7,7 +7,7 @@ export function saveAutoPickup(storage,enabled){try{(storage??globalThis.localSt
 // Shared by the HUD and authoritative simulation. Never pick through cover,
 // from a different floor, during parachuting, or consume useless duplicates.
 export function nearbyWeaponItems(match,actor,solids,range=WEAPON_PICKUP_RANGE){
- if(!actor||actor.status!=='alive'||match.state!=='playing'||match.drop>0)return [];
+ if(!actor||actor.vehicleId!==undefined||actor.status!=='alive'||match.state!=='playing'||match.drop>0)return [];
  const found=[];
  const eye={x:actor.x,y:actor.y+1,z:actor.z};
  for(const item of match.loot){

@@ -21,6 +21,8 @@ export class GameAudio{
    case'hit':oscillator(1046,1318,.08,.035,'sine');break;
    case'headshot':oscillator(1200,1500,.08,.06);oscillator(1500,1900,.08,.04,'sine',.07);break;
    case'damage':oscillator(440,330,.14,.035,'sine');break;
+   case'vehicle-engine':oscillator(80+weapon*3,85+weapon*3,.38,.027,'triangle');noise(220,.32,.017);break;
+   case'vehicle-door':noise(700,.07,.05);oscillator(240,150,.09,.025,'triangle');break;
    case'footstep':noise(500,.065,.075);oscillator(75,45,.055,.025);break;
    case'jump':noise(1200,.12,.04);break;
    case'land':noise(600,.18,.13);oscillator(90,35,.18,.06);break;
@@ -38,5 +40,5 @@ export class GameAudio{
   }
   const cleanup=c.createOscillator(),silent=c.createGain();silent.gain.value=0;cleanup.connect(silent);silent.connect(bus);cleanup.onended=()=>{for(const node of nodes)node.disconnect();cleanup.disconnect();silent.disconnect();bus.disconnect();stereo.disconnect();this.active=Math.max(0,this.active-1)};cleanup.start();cleanup.stop(end+.02);
  }
- update(dt,actor,{playing=false,paused=false,drop=0,outside=false}={}){if(!playing||paused||!actor){this.previous={};this.step=0;return}const prev=this.previous;if(prev.drop>0&&drop<=0)this.play('land');if(actor.jump>.1&&!(prev.jump>.1))this.play('jump');if(prev.jump>.1&&actor.jump<=0)this.play('land');if(actor.reload>0&&!(prev.reload>0))this.play('reload');if(prev.reload>0&&actor.reload<=0)this.play('loaded');if(actor.heal>0&&!(prev.heal>0))this.play('heal');if(outside&&!prev.outside)this.play('zone');if(actor.status==='alive'&&drop<=0&&actor.jump<=0&&actor.speed>1){this.step-=dt;if(this.step<=0){this.play('footstep');this.step=actor.speed>7?.24:actor.crouch?.5:.34}}else this.step=0;this.previous={drop,jump:actor.jump,reload:actor.reload,heal:actor.heal,outside}}
+ update(dt,actor,{playing=false,paused=false,drop=0,outside=false,vehicle=null}={}){if(!playing||paused||!actor){this.previous={};this.step=0;return}if(vehicle){this.engineTime=(this.engineTime??0)-dt;if(this.engineTime<=0){this.play('vehicle-engine',{weapon:Math.abs(vehicle.speed)});this.engineTime=.32}}else this.engineTime=0;const prev=this.previous;if(prev.drop>0&&drop<=0)this.play('land');if(actor.jump>.1&&!(prev.jump>.1))this.play('jump');if(prev.jump>.1&&actor.jump<=0)this.play('land');if(actor.reload>0&&!(prev.reload>0))this.play('reload');if(prev.reload>0&&actor.reload<=0)this.play('loaded');if(actor.heal>0&&!(prev.heal>0))this.play('heal');if(outside&&!prev.outside)this.play('zone');if(actor.status==='alive'&&drop<=0&&actor.jump<=0&&actor.speed>1){this.step-=dt;if(this.step<=0){this.play('footstep');this.step=actor.speed>7?.24:actor.crouch?.5:.34}}else this.step=0;this.previous={drop,jump:actor.jump,reload:actor.reload,heal:actor.heal,outside}}
 }
